@@ -6,8 +6,8 @@ library(lme4)
 library(MEForLab)
 
 #load data
-#setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
-setwd("G:/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
+setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
+#setwd("G:/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
 overstory<-read.csv("Trees2023.csv")
 tree_locations <- read.csv("tree_locations_species.csv")
 
@@ -33,13 +33,10 @@ summary(ht.lm)
 tree_predict <- tree_join %>% 
   mutate(PRD_HT = predict(ht.lm, tree_join, re.form = NULL, allow.new.levels = TRUE))
 
-library(MEForLab)
 tree_predict$TOT_HT[is.na(tree_predict$TOT_HT)] <- 0
 tree_predict$PRD_HT[is.na(tree_predict$PRD_HT)] <- 0
-
 tree_predict$fin.ht <- ifelse(tree_predict$TOT_HT<1,tree_predict$PRD_HT,tree_predict$TOT_HT)
 tree_predict$fin.ht <- ifelse(tree_predict$fin.ht<0,0,tree_predict$fin.ht)
-library(tidyr)
 
 tree_predict$SPP[is.na(tree_predict$SPP)] <- "OT"
 
@@ -56,6 +53,9 @@ tree_predict["vol"] <-
 library(lattice)
 
 xyplot(vol~DBH|SPP,data=tree_predict)
+
+xyplot(fin.ht~DBH|SPP,data=tree_predict)
+
 
 
 ##scratch##  
