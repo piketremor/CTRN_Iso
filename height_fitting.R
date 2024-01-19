@@ -56,6 +56,8 @@ xyplot(vol~DBH|SPP,data=tree_predict)
 
 xyplot(fin.ht~DBH|SPP,data=tree_predict)
 
+xplot(fin.ht~DBH,data=tree_predict)
+
 
 
 ##scratch##  
