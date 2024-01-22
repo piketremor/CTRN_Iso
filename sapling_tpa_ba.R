@@ -125,9 +125,9 @@ View(shann.frame)
 
 sarah<-filter(shann.frame, SITEid == "SR" & YEAR == 2018)
 
-setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
+#setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
 
-write.csv(sarah,"SarahsRoadDiv.csv")
+#write.csv(sarah,"SarahsRoadDiv.csv")
 
 site.var<- read.csv("CTRN_Enviro.csv")
 site.var <- read.csv("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/CTRN_Enviro.csv")
