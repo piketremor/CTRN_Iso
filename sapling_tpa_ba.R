@@ -58,6 +58,7 @@ species_summary_sap <- saplings%>%
 
 saplings_again<-left_join(species_summary_sap, plot_summary_sap)
 
+
 saplings_again <- saplings_again%>%
   mutate(prop_tpa = (SAP_TPA/SAP_TPA_total),
          prop_ba = (SAPBA/SAPBA_total))
@@ -65,7 +66,6 @@ saplings_again <- saplings_again%>%
 saplings_again <- saplings_again%>%
   mutate(iv = ((prop_tpa + prop_ba)/2))
 
-#write.csv(saplings_again, "~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/saplings.csv", row.names = FALSE)
 
 #diversity 
 saplings$spec.count <- (saplings$X1.2.inch+saplings$X1.inch+saplings$X2.inch)
