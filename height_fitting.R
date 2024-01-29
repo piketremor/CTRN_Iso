@@ -1,12 +1,12 @@
-#edits made by Lila Beck on Dec. 21, 2023
 #load packages
 library(dplyr)
 library(tidyverse)
 library(lme4)
 library(MEForLab)
+library(lattice)
 
 #load data
-setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
+setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
 #setwd("G:/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
 overstory<-read.csv("Trees2023.csv")
 tree_locations <- read.csv("tree_locations_species.csv")
@@ -41,16 +41,10 @@ tree_predict$fin.ht <- ifelse(tree_predict$fin.ht<0,0,tree_predict$fin.ht)
 tree_predict$SPP[is.na(tree_predict$SPP)] <- "OT"
 
 
-
-#here's where i'm getting stuck...
-#apply the function to the dataframe and create new volume variable
-
-
 tree_predict["vol"] <- 
   mapply(vol_calc,SPP=tree_predict$SPP,DBH=tree_predict$DBH,HT=tree_predict$fin.ht)
 
 
-library(lattice)
 
 xyplot(vol~DBH|SPP,data=tree_predict)
 
@@ -60,21 +54,6 @@ xplot(fin.ht~DBH,data=tree_predict)
 
 
 
-##scratch##  
-#gdf <- groupedData(TOT_HT ~ log(DBH)|SPP/YEAR/SITEid, data=tree_join)
 
-#plotlm = lmList(TOT_HT~log(DBH), data=gdf, na.action = na.pass)
-
-#coef(summary(plotlm))
-
-#plotlm.frame <- bind_rows(as.data.frame(coef(summary(plotlm))), as.data.frame(coef(summary(plotlm))))
-
-#plotlm.frame <- plotlm.frame %>% 
-  #separate(c("SPP", "YEAR", "SITEid"))
-#how separate column with no name
-
-#install.packages("~/Google Drive/My Drive/MEForLab",
-                 #repos = NULL,
-                 #type = "source")
 
 
