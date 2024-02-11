@@ -12,6 +12,8 @@ library(leaps)
 library(ggfortify)
 library(ggeffects)
 library(ggeasy)
+library(reshape2)
+library(vegan)
 
 
 #setwd("G:/.shortcut-targets-by-id/1sCbm2t1PUIpbJYVOzlIrZKeVhisl4Ghv/CTRN_CFRU_Share/raw/csv")
@@ -244,10 +246,30 @@ ggplot(shan, aes(x=hill))+
   facet_wrap(vars(REMOVAL))+
   coord_flip()+
   easy_remove_x_axis()
-  
+ 
+##Ordination 
+
+#following mike's example
+saplings_again$sapID<-paste(saplings_again$SITEid,"-",saplings_again$PLOTid)
+sapmat<-saplings_again[,3:12]
+sapmolten <- melt(as.data.frame(sapmat),id=c("sapID","iv"))
+bark <- dcast(sapmolten,sapID~value,value.var = "iv")
+bark[is.na(bark)] <- 0
+
+#trying pivot to get species in wide format (sydne recommended)
+sapwide<-saplings_again%>%
+  pivot_wider(names_from = SPP, values = iv) 
+sapwide[is.na(sapwide)] <- 0
+
+#dissimilarity values
+sapj<-vegdist(sapwide[,10:40], "bray") #don't know which method to use
+
+#nmds
+nmdssappy<-metaMDS(sapj,k=2, trace=T)
+
 
     
-#change color, remove background
+
   
 
   
