@@ -1,4 +1,3 @@
-#edits made by Lila Beck on 11/3/23 10am
 #load packages
 dev.off()
 rm(list=ls())
@@ -14,6 +13,7 @@ library(ggeffects)
 library(ggeasy)
 library(reshape2)
 library(vegan)
+library(psych)
 
 
 #setwd("G:/.shortcut-targets-by-id/1sCbm2t1PUIpbJYVOzlIrZKeVhisl4Ghv/CTRN_CFRU_Share/raw/csv")
@@ -67,6 +67,10 @@ saplings_again <- saplings_again%>%
 
 saplings_again <- saplings_again%>%
   mutate(iv = ((prop_tpa + prop_ba)/2))
+
+
+
+
 
 
 #diversity 
@@ -249,23 +253,31 @@ ggplot(shan, aes(x=hill))+
  
 ##Ordination 
 
-#following mike's example
-saplings_again$sapID<-paste(saplings_again$SITEid,"-",saplings_again$PLOTid)
-sapmat<-saplings_again[,3:12]
-sapmolten <- melt(as.data.frame(sapmat),id=c("sapID","iv"))
-bark <- dcast(sapmolten,sapID~value,value.var = "iv")
-bark[is.na(bark)] <- 0
+#remove iv values less than 5%
+branch<-subset(saplings_again, iv>0.05)
 
-#trying pivot to get species in wide format (sydne recommended)
-sapwide<-saplings_again%>%
-  pivot_wider(names_from = SPP, values = iv) 
+branch18<-filter(branch, YEAR==2018)
+
+#remove old iv values
+branch18<-branch18[,1:10]
+
+#recalculate iv values
+branch18 <- branch18%>%
+  mutate(iv = ((prop_tpa + prop_ba)/2))
+
+#create site-plot identifier
+branch18$sapID<-paste(branch18$SITEid,"-",branch18$PLOTid)
+
+
+#pivot to get species in wide format
+sapwide<-branch18%>%
+  pivot_wider(names_from = SPP, values_from = iv) 
 sapwide[is.na(sapwide)] <- 0
 
-#dissimilarity values
-sapj<-vegdist(sapwide[,10:40], "bray") #don't know which method to use
+sapwide<-sapwide[,11:30]
 
 #nmds
-nmdssappy<-metaMDS(sapj,k=2, trace=T)
+nmdssappy<-metaMDS(sapwide,k=2, trace=T)
 
 
     
