@@ -14,6 +14,7 @@ library(ggeasy)
 library(reshape2)
 library(vegan)
 library(psych)
+library(reshape)
 
 
 #setwd("G:/.shortcut-targets-by-id/1sCbm2t1PUIpbJYVOzlIrZKeVhisl4Ghv/CTRN_CFRU_Share/raw/csv")
@@ -265,19 +266,33 @@ branch18<-branch18[,1:10]
 branch18 <- branch18%>%
   mutate(iv = ((prop_tpa + prop_ba)/2))
 
+describeBy(branch18)
+
 #create site-plot identifier
 branch18$sapID<-paste(branch18$SITEid,"-",branch18$PLOTid)
 
+#get data in long format
+molten <- melt(as.data.frame(branch18),id=c("sapID","iv","SPP"))
+sapwide <- dcast(molten,sapID~SPP,value.var = "iv")
 
-#pivot to get species in wide format
-sapwide<-branch18%>%
-  pivot_wider(names_from = SPP, values_from = iv) 
-sapwide[is.na(sapwide)] <- 0
+#sapwide<-branch18%>%
+#  pivot_wider(names_from = SPP, values_from = iv) 
 
-sapwide<-sapwide[,11:30]
+#sapwide<-dcast(sapwide,sapID)
+#sapwide[is.na(sapwide)] <- 0
+
+
+sapwide<-sapwide[,10:30]
 
 #nmds
-nmdssappy<-metaMDS(sapwide,k=2, trace=T)
+set.seed(1234)
+nmdssappy<-metaMDS(sapwide[,2:21], type="t")
+stressplot(nmdssappy)
+
+plot(nmdssappy)
+data.scores <- as.data.frame(scores(nmdssappy))  
+data.scores$site <- rownames(data.scores)  
+head(data.scores)
 
 
     
