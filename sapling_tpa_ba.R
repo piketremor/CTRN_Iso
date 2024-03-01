@@ -27,6 +27,14 @@ saplings <- read.csv("Saplings.csv")
 
 #select out for just the 15 CTRN sites
 saplings <- filter(saplings, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB") 
+saplings[saplings == "SpecAld"]<-"SA"
+saplings[saplings == "HM"]<-"EH"
+saplings[saplings == "CH"]<-"BC"
+
+
+
+
+
 
 #stand metrics and importance values
 saplings[is.na(saplings)] <- 0
@@ -252,43 +260,20 @@ ggplot(shan, aes(x=hill))+
   facet_wrap(vars(REMOVAL))+
   coord_flip()+
   easy_remove_x_axis()
+
+
+
  
-##Ordination 
-
-#create site-plot identifier
-branch$sapID<-paste(branch$SITEid,"-",branch$PLOTid)
-
-#get data in long format
-molten <- melt(as.data.frame(branch),id=c("sapID","iv","SPP"))
-sapwide <- dcast(molten,sapID~SPP,value.var = "iv")
-
-#sapwide<-branch18%>%
-#  pivot_wider(names_from = SPP, values_from = iv) 
-
-#sapwide<-dcast(sapwide,sapID)
-#sapwide[is.na(sapwide)] <- 0
+##2018 Ordination and Data Cleaning
 
 
-sapwide<-sapwide[,10:30]
-
-#nmds
-set.seed(1234)
-nmdssappy<-metaMDS(sapwide[,2:21], type="t")
-stressplot(nmdssappy)
-
-plot(nmdssappy)
-data.scores <- as.data.frame(scores(nmdssappy))  
-data.scores$site <- rownames(data.scores)  
-head(data.scores)
-
-##
+#Filter for just year 2018
 saplings18<-filter(saplings, YEAR == 2018)
 
-saplings18[saplings18 == "SpecAld"]<-"SA"
-saplings18$sapID<-paste(saplings18$SITEid,"-",saplings18$PLOTid)
+#filter for species >5%
+branch<-filter(saplings18, SPP =="PB"|SPP == "OT"|SPP=="NC"|SPP=="RM"|SPP=="RS"|SPP=="WP"|SPP=="BF"|SPP=="YB"|SPP=="EH"|SPP=="QA"|SPP=="BC")
 
-branch<-filter(saplings18, SPP =="BH"|SPP == "OT"|SPP=="PB"|SPP=="RM"|SPP=="RS"|SPP=="WP")
-
+#recalculate iv values
 branch <- branch%>%
   mutate(ba.half = (0.5^2*0.005454)*X1.2.inch)%>%
   mutate(ba.one = (1.0^2*0.005454)*X1.inch)%>%
@@ -329,29 +314,41 @@ branch <- branch%>%
 branch <- branch%>%
   mutate(iv = ((prop_tpa + prop_ba)/2))
 
+#create site-plot identifier
+branch$sapID<-paste(branch$SITEid,"-",branch$PLOTid)
+
+#get data in long format
+molten <- melt(as.data.frame(branch),id=c("sapID","iv","SPP"))
+sapwide <- dcast(molten,sapID~SPP,value.var = "iv")
 
 
 
 
+#calculate which species are below 5%
+#sapwide <- dcast(saplings18,sapID~SPP, value.var = "X1.2.inch")
 
-sapwide <- dcast(saplings18,sapID~SPP, value.var = "X1.2.inch")
+#sapwide<-as.data.frame(sapwide)
 
-sapwide<-as.data.frame(sapwide)
-
-sapwide[sapwide > 0]<-1
-
-#calculate column totals
-sapwide<-sapwide%>%
-  adorn_totals("row")
-sum(sapwide[95,2:21]) #278
-
-#AB, CH, EH, GB, HM, NC, QA, RO, SA, SM, ST, WS, YB, YR less than 5%
+#sapwide[,2:21][sapwide[,2:21] > 0]<-1
 
 
+#sapwide<-sapwide%>%
+#  adorn_totals("row")
 
 
+#RO, WS,AB, GB, SA, SM, ST, YR species <5%
+#replace HM with EH
 
 
+#nmds
+#set.seed(1234)
+#nmdssappy<-metaMDS(sapwide[,2:21], type="t")
+#stressplot(nmdssappy)
+
+#plot(nmdssappy)
+#data.scores <- as.data.frame(scores(nmdssappy))  
+#data.scores$site <- rownames(data.scores)  
+#head(data.scores)
     
 
   
