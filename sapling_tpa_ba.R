@@ -15,6 +15,7 @@ library(reshape2)
 library(vegan)
 library(psych)
 library(reshape)
+library(janitor)
 
 
 #setwd("G:/.shortcut-targets-by-id/1sCbm2t1PUIpbJYVOzlIrZKeVhisl4Ghv/CTRN_CFRU_Share/raw/csv")
@@ -254,25 +255,11 @@ ggplot(shan, aes(x=hill))+
  
 ##Ordination 
 
-#remove iv values less than 5%
-branch<-subset(saplings_again, iv>0.05)
-
-branch18<-filter(branch, YEAR==2018)
-
-#remove old iv values
-branch18<-branch18[,1:10]
-
-#recalculate iv values
-branch18 <- branch18%>%
-  mutate(iv = ((prop_tpa + prop_ba)/2))
-
-describeBy(branch18)
-
 #create site-plot identifier
-branch18$sapID<-paste(branch18$SITEid,"-",branch18$PLOTid)
+branch$sapID<-paste(branch$SITEid,"-",branch$PLOTid)
 
 #get data in long format
-molten <- melt(as.data.frame(branch18),id=c("sapID","iv","SPP"))
+molten <- melt(as.data.frame(branch),id=c("sapID","iv","SPP"))
 sapwide <- dcast(molten,sapID~SPP,value.var = "iv")
 
 #sapwide<-branch18%>%
@@ -293,6 +280,76 @@ plot(nmdssappy)
 data.scores <- as.data.frame(scores(nmdssappy))  
 data.scores$site <- rownames(data.scores)  
 head(data.scores)
+
+##
+saplings18<-filter(saplings, YEAR == 2018)
+
+saplings18[saplings18 == "SpecAld"]<-"SA"
+saplings18$sapID<-paste(saplings18$SITEid,"-",saplings18$PLOTid)
+
+branch<-filter(saplings18, SPP =="BH"|SPP == "OT"|SPP=="PB"|SPP=="RM"|SPP=="RS"|SPP=="WP")
+
+branch <- branch%>%
+  mutate(ba.half = (0.5^2*0.005454)*X1.2.inch)%>%
+  mutate(ba.one = (1.0^2*0.005454)*X1.inch)%>%
+  mutate(ba.two = (2.0^2)*0.005454*X2.inch)%>%
+  mutate(sap.ba = (ba.half+ba.one+ba.two)*250)
+
+branch$SAP_EXP <- 250
+
+branch<-replace(branch, is.na(branch), 0)   
+
+
+branch<-branch%>%
+  mutate(total_diameter = ba.half + ba.one + ba.two)
+
+branch<-branch%>%
+  mutate(BA = ((total_diameter^2)*0.005454))
+
+branch<-branch%>%
+  mutate(SAP_BA_TPA = BA * SAP_EXP)
+
+plot_summary_sap <- branch%>%
+  group_by(SITEid, PLOTid, YEAR)%>%
+  summarise(SAP_TPA_total = sum(SAP_EXP),
+            SAPBA_total = sum(SAP_BA_TPA))
+
+branch <- branch%>%
+  group_by(SITEid, PLOTid, YEAR, SPP)%>%
+  summarise(SAP_TPA = sum(SAP_EXP),
+            SAPBA = sum(SAP_BA_TPA))
+
+branch<-left_join(branch, plot_summary_sap)
+
+
+branch <- branch%>%
+  mutate(prop_tpa = (SAP_TPA/SAP_TPA_total),
+         prop_ba = (SAPBA/SAPBA_total))
+
+branch <- branch%>%
+  mutate(iv = ((prop_tpa + prop_ba)/2))
+
+
+
+
+
+
+sapwide <- dcast(saplings18,sapID~SPP, value.var = "X1.2.inch")
+
+sapwide<-as.data.frame(sapwide)
+
+sapwide[sapwide > 0]<-1
+
+#calculate column totals
+sapwide<-sapwide%>%
+  adorn_totals("row")
+sum(sapwide[95,2:21]) #278
+
+#AB, CH, EH, GB, HM, NC, QA, RO, SA, SM, ST, WS, YB, YR less than 5%
+
+
+
+
 
 
     
