@@ -327,6 +327,12 @@ head(sapwide)
 rowSums(sapwide[2:12])
 
 
+#NMDS
+sapordi<-metaMDS(sapwide[,2:12], distance = "bray")
+stressplot(sapordi)
+plot(sapordi)
+
+
 
 #calculate which species are below 5%
 #sapwide <- dcast(saplings18,sapID~SPP, value.var = "X1.2.inch")
