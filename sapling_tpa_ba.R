@@ -21,6 +21,7 @@ library(janitor)
 #setwd("G:/.shortcut-targets-by-id/1sCbm2t1PUIpbJYVOzlIrZKeVhisl4Ghv/CTRN_CFRU_Share/raw/csv")
 #setwd("G:/My Drive/CTRN_CFRU_Share/raw/csv")
 setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
+#setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
 #saplings <- read.csv("~/Google Drive/My Drive/Research/CTRN_CFRU_Share/raw/csv/Saplings.csv") 
 #saplings <- read.csv("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/Saplings.csv")
 saplings <- read.csv("Saplings.csv")
@@ -319,8 +320,11 @@ branch$sapID<-paste(branch$SITEid,"-",branch$PLOTid)
 
 #get data in long format
 molten <- melt(as.data.frame(branch),id=c("sapID","iv","SPP"))
-sapwide <- dcast(molten,sapID~SPP,value.var = "iv")
-
+sapwide <- dcast(molten,sapID~SPP,value.var = "iv",mean)
+sapwide[is.na(sapwide)] <- 0
+head(sapwide)
+# double check they all add to 1
+rowSums(sapwide[2:12])
 
 
 
