@@ -316,7 +316,7 @@ branch <- branch%>%
   mutate(iv = ((prop_tpa + prop_ba)/2))
 
 #create site-plot identifier
-branch$sapID<-paste(branch$SITEid,"-",branch$PLOTid)
+branch$sapID<-paste0(branch$SITEid,"-",branch$PLOTid)
 
 #get data in long format
 molten <- melt(as.data.frame(branch),id=c("sapID","iv","SPP"))
