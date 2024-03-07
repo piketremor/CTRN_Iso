@@ -332,6 +332,10 @@ sapordi<-metaMDS(sapwide[,2:12], distance = "bray")
 stressplot(sapordi)
 plot(sapordi)
 
+plot(sapordi,type="n")
+points(sapordi,display="sites",cex=2,pch=21,col="red", bg="yellow")
+text(sapordi,display="spec",cex=1.5,col="blue")
+
 
 
 #calculate which species are below 5%
