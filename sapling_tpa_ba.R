@@ -25,6 +25,7 @@ setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
 #saplings <- read.csv("~/Google Drive/My Drive/Research/CTRN_CFRU_Share/raw/csv/Saplings.csv") 
 #saplings <- read.csv("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/Saplings.csv")
 saplings <- read.csv("Saplings.csv")
+env<-read.csv("CTRN_Enviro.csv")
 
 #select out for just the 15 CTRN sites
 saplings <- filter(saplings, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB") 
@@ -32,6 +33,7 @@ saplings[saplings == "SpecAld"]<-"SA"
 saplings[saplings == "HM"]<-"EH"
 saplings[saplings == "CH"]<-"BC"
 
+env<-filter(env, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB")
 
 
 
@@ -338,6 +340,68 @@ text(sapordi,display="spec",cex=1.5,col="blue")
 
 
 
+## Constrained Ordination###
+env<-env[,c(2,3,4,27:65)]
+env$sapID<-paste0(env$SITEid,"-",env$PLOTid)
+env<-filter(env, YEAR==2018)
+env<-env[,c(4:43)]
+env<-env[,c(40, 1:39)]
+env[is.na(env)] <- 0
+
+sap2<-left_join(sapwide, env)
+sap2[is.na(sap2)] <- 0
+
+sap.rda
+
+
+env<-env[,2:40]
+sapwide<-sapwide[,2:12]
+summary(env)
+
+sapwide<-as.data.frame(sapwide)
+env<-as.data.frame(env)
+
+env<-as.numeric(env[,2:40])
+
+env<-rownames(env[,1])
+
+env$flowdir<-as.numeric(env$flowdir)
+env$Parent<-as.numeric(env$Parent)
+
+env$sapID<-as.factor(env$sapID)
+sapwide$sapID<-as.factor(sapwide$sapID)
+
+name<-sapwide$sapID
+
+list<-env$sapID
+
+bark<-left_join(env, sapwide)
+
+sapwide<-bark[c(1, 41:51)]
+env<-bark[,1:40]
+
+sapwide<-sapwide[,2:12]
+env<-env[,2:40]
+#rda
+sap.rda <- rda(sapwide ~ ., data=env)
+summary(sap.rda)
+ordiplot(sap.rda, scaling = 2, type = "text")
+step.forward <- ordiR2step(rda(sapwide ~ 1, data=env), scope=formula(sap.rda), R2scope = F, direction="forward", pstep=1000)
+anova(sap.rda, by="terms", step=1000)
+#reduced model
+sap.rda2<-rda(sapwide ~ wd+SWI+ppt+SWC2+WD2020+Winds10+vpdmax+tri+dep, data=env)
+ordiplot(sap.rda2, scaling = 2, type = "text")
+
+
+
+
+
+
+
+
+
+
+
 #calculate which species are below 5%
 #sapwide <- dcast(saplings18,sapID~SPP, value.var = "X1.2.inch")
 
@@ -365,6 +429,88 @@ text(sapordi,display="spec",cex=1.5,col="blue")
 #head(data.scores)
     
 
-  
+## 2003 saplings
 
-  
+#Filter for just year 2018
+saplings03<-filter(saplings, YEAR == 2003)
+
+#filter for species >5%
+branch<-filter(saplings03, SPP =="PB"|SPP=="RM"|SPP=="RS"|SPP=="BF"|SPP=="EH"|SPP=="NONE")
+
+#recalculate iv values
+branch <- branch%>%
+  mutate(ba.half = (0.5^2*0.005454)*X1.2.inch)%>%
+  mutate(ba.one = (1.0^2*0.005454)*X1.inch)%>%
+  mutate(ba.two = (2.0^2)*0.005454*X2.inch)%>%
+  mutate(sap.ba = (ba.half+ba.one+ba.two)*250)
+
+branch$SAP_EXP <- 250
+
+branch<-replace(branch, is.na(branch), 0)   
+
+
+branch<-branch%>%
+  mutate(total_diameter = ba.half + ba.one + ba.two)
+
+branch<-branch%>%
+  mutate(BA = ((total_diameter^2)*0.005454))
+
+branch<-branch%>%
+  mutate(SAP_BA_TPA = BA * SAP_EXP)
+
+plot_summary_sap <- branch%>%
+  group_by(SITEid, PLOTid, YEAR)%>%
+  summarise(SAP_TPA_total = sum(SAP_EXP),
+            SAPBA_total = sum(SAP_BA_TPA))
+
+branch <- branch%>%
+  group_by(SITEid, PLOTid, YEAR, SPP)%>%
+  summarise(SAP_TPA = sum(SAP_EXP),
+            SAPBA = sum(SAP_BA_TPA))
+
+branch<-left_join(branch, plot_summary_sap)
+
+
+branch <- branch%>%
+  mutate(prop_tpa = (SAP_TPA/SAP_TPA_total),
+         prop_ba = (SAPBA/SAPBA_total))
+
+branch <- branch%>%
+  mutate(iv = ((prop_tpa + prop_ba)/2))
+
+#create site-plot identifier
+branch$sapID<-paste0(branch$SITEid,"-",branch$PLOTid)
+
+#get data in long format
+molten <- melt(as.data.frame(branch),id=c("sapID","iv","SPP"))
+sapwide <- dcast(molten,sapID~SPP,value.var = "iv",mean)
+sapwide[is.na(sapwide)] <- 0
+head(sapwide)
+# double check they all add to 1
+rowSums(sapwide[2:7])
+
+
+sapwide<-filter(sapwide, BF > 0 | EH > 0 | NONE > 0 | PB > 0 | RM > 0 | RS > 0)
+
+#NMDS
+sapordi<-metaMDS(sapwide[,2:7], distance = "bray")
+stressplot(sapordi)
+plot(sapordi)
+
+plot(sapordi,type="n")
+points(sapordi,display="sites",cex=2,pch=21,col="red", bg="yellow")
+text(sapordi,display="spec",cex=1.5,col="blue")
+
+
+
+#calculate which species are below 5%
+saplings03$sapID<-paste0(saplings03$SITEid,"-",saplings03$PLOTid)
+sapwide <- dcast(saplings03,sapID~SPP, value.var = "X1.2.inch")
+
+sapwide<-as.data.frame(sapwide)
+
+sapwide[,2:12][sapwide[,2:12] > 0]<-1
+
+
+sapwide<-sapwide%>%
+  adorn_totals("row")
