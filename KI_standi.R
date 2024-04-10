@@ -7,8 +7,7 @@ library(gdata)
 
 setwd("~/Google Drive/My drive/CTRN_CFRU_Share/raw/raw")
 
-## KI Spruce
-KI<-read.rwl("KI_PIRU2.raw", format = "tucson")
+## KI Spruce ##
 KI<-read.tucson("KI_PIRU2.raw", header = NULL, long = FALSE, encoding = getOption("encoding"), edge.zeros = TRUE)
 KI_test<-read.csv("~/Desktop/KI_test.csv")
 KI_test<-KI_test[,2:39]
