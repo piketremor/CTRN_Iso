@@ -7,7 +7,7 @@ trees <- read.csv("Trees2023.csv")
 locs <- read.csv("Tree_locations_species.csv")
 names(locs)
 ex <- locs
-ex <- dplyr::filter(locs,SITEid=="KI",PLOTid=="1")
+ex <- dplyr::filter(locs,SITEid=="GR",PLOTid=="4")
 ex[is.na(ex)] <- 0
 ex<- dplyr::filter(ex,DIST>0)
 ki <- ex
@@ -23,6 +23,6 @@ new.df <- arrange(new.df,SITEid,PLOTid,focal.tree,competitor.tree)
 new.df <- dplyr::filter(new.df,distance>0)
 plot(density(new.df$distance))
 #View(new.df)
-write.csv(new.df,"~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/RR_stemMap_Plot1.csv")
+write.csv(new.df,"~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/GR_stemMap_Plot4.csv")
 dev.off()
 rm(list=ls())
