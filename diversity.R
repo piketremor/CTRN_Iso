@@ -35,6 +35,7 @@ saplings<-saplings%>%
          X2.inch = replace_na(X2.inch, 0))
 
 saplings$spec.count <- (saplings$X1.2.inch+saplings$X1.inch+saplings$X2.inch)
+saplings$spec.count<- saplings$spec.count*250
 
 sap.sum <- saplings%>%
   group_by(SITEid,PLOTid,YEAR,SPP)%>%
@@ -56,7 +57,7 @@ tree_species <- locs%>%
   select(SITEid, PLOTid, TREE, SPP)
 
 over <- left_join(trees, tree_species)
-over$tally <- 1
+over$tally <- 5
 
 over.sum<-over%>%
   group_by(SITEid, PLOTid, YEAR, SPP)%>%
@@ -65,6 +66,8 @@ over.sum<-over%>%
 all.over<-over%>%
   group_by(SITEid, PLOTid, YEAR)%>%
   summarize(overstory.total = sum(tally))
+
+
 
 overstory<- left_join(over.sum, all.over)
 head(overstory)
@@ -82,7 +85,7 @@ all_tree$shann.base <- -1*(all_tree$shann.base)
 
 shann.frame <- all_tree%>%
   group_by(SITEid, PLOTid, YEAR)%>%
-  mutate(shannon = sum(shann.base),
+  summarise(shannon = sum(shann.base),
          hill = exp(shannon))
 
 shann.sum <- shann.frame%>%
