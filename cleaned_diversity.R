@@ -160,7 +160,7 @@ full <- lme(Hill~dew+Lithic+THIN_METH,
             data=cleaned,
             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
             random=~1|SITEid/PLOTid,
-            na.action=na.omit)
+            na.action=na.omit,method="REML")
 summary(full)
 performance(full)
 plot(full)
@@ -187,10 +187,17 @@ no.na.data$fit <- predict(full,no.na.data)
 no.na.data$resid <- no.na.data$Hill-no.na.data$fit
 plot(no.na.data$fit,no.na.data$resid)
 abline(h=0)
+unique(no.na.data$THIN_METH)
 plot(no.na.data$fit,no.na.data$Hill,
-     ylim=c(0,6),xlim=c(0,6))
-abline(0,1)
+     ylim=c(0,6),xlim=c(0,6),
+     col=factor(no.na.data$THIN_METH),
+     pch=16,cex=1.5,
+     ylab="Observed Hill Diversity",
+     xlab="Predicted Hill Diversity")
+legend(0.1,6,unique(no.na.data$THIN_METH),col=1:length(no.na.data$THIN_METH),pch=16)
 
+abline(0,1,col="gray30",lty=3)
+cor(no.na.data$Hill,no.na.data$fit)
 
 
 
