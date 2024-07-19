@@ -160,15 +160,53 @@ plot(mod2)
 library(nlme)
 library(regclass)
 
-full <- lme(Hill~tmean+Lithic+THIN_METH,data=cleaned,correlation=corAR1(form=~YEAR),
-            random=~1|SITEid/PLOTid,na.action=na.omit)
+check_distribution(cleaned$Hill)
+
+cleaned <- groupedData(Hill~1|SITEid/PLOTid,data=cleaned)
+plot(density(cleaned$Hill))
+full <- lme(Hill~dew+Lithic+THIN_METH,
+            data=cleaned,
+            correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+            random=~1|SITEid/PLOTid,
+            na.action=na.omit)
 summary(full)
 performance(full)
 plot(full)
+
+
+require(ggeffects)
+mydf2<-ggpredict(full, terms = c("Lithic", "THIN_METH", "dew"))
+
+ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
+  geom_line(aes(linetype=group,color=group),size=1)+
+  labs(linetype="Thinning Method")+
+  labs(colour = "Thinning Method")+
+  #labs(x="Basal Area per Acre",y="Predicted Diversity (Hill)")+
+  #ylim(0,55)+
+  #xlim(4,6)+
+  facet_wrap(~facet)+
+  theme_bw(18) 
+
+xyplot(Hill~WD|SITEid,data=cleaned,
+       type=c("p","smooth"))
+
+plot(full)
 rmse(full)
-qqnorm(full)
+
+no.na.data$fit <- predict(full,no.na.data)
+mae(no.na.data$fit,no.na.data$Hill)
+no.na.data$resid <- no.na.data$Hill-no.na.data$fit
+plot(no.na.data$fit,no.na.data$resid)
+abline(h=0)
+plot(no.na.data$fit,no.na.data$Hill,
+     ylim=c(0,6),xlim=c(0,6))
+abline(0,1)
 
 
+
+#qqnorm(full)
+require(MuMIn)
+r.squaredGLMM(full)
 
 
 
