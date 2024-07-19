@@ -100,7 +100,6 @@ treat <- treat%>%
 treat.rx <- treat[c(2,3,10:14)]
 cleaned <- left_join(clean.df,treat.rx,by=c("SITEid","PLOTid"))
 
-head(cleaned)
 cleaned$tst <- cleaned$YEAR-cleaned$TRT_YR
 cleaned$X[is.na(cleaned$X)] <- 0
 cleaned <- dplyr::filter(cleaned,X>0)
@@ -116,14 +115,6 @@ cleaned$PCT <- as.factor(cleaned$PCT)
 cleaned$THIN_METH <- as.factor(cleaned$THIN_METH)
 head(cleaned)
 
-cleaned$check.yr <- cleaned$TRT_YR-cleaned$YEAR
-calibrate <- dplyr::filter(cleaned,check.yr>-1)
-calib.set <- calibrate%>%
-  group_by(SITEid,PLOTid,YEAR)%>%
-  reframe(calib.wd = cumsum(WD))
-
-
-
 no.na.data <- na.omit(cleaned)
 
 model.null<- lm(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
@@ -138,6 +129,7 @@ require(performance)
 check_collinearity(mod.step)
 
 mod1 <- lm(Hill~Planform+Lithic+WD+REMOVAL+THIN_METH+tst,data=no.na.data)
+no.na.data <- dplyr::filter(no.na.data,Hill>0)
 summary(mod1)
 require(leaps)
 models.ov <- regsubsets(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
@@ -172,7 +164,7 @@ full <- lme(Hill~dew+Lithic+THIN_METH,
 summary(full)
 performance(full)
 plot(full)
-
+AIC(full,mod1,mod.step)
 
 require(ggeffects)
 mydf2<-ggpredict(full, terms = c("Lithic", "THIN_METH", "dew"))
@@ -187,20 +179,19 @@ ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
   facet_wrap(~facet)+
   theme_bw(18) 
 
-xyplot(Hill~WD|SITEid,data=cleaned,
-       type=c("p","smooth"))
 
 plot(full)
 rmse(full)
 
 no.na.data$fit <- predict(full,no.na.data)
-mae(no.na.data$fit,no.na.data$Hill)
 no.na.data$resid <- no.na.data$Hill-no.na.data$fit
 plot(no.na.data$fit,no.na.data$resid)
 abline(h=0)
 plot(no.na.data$fit,no.na.data$Hill,
      ylim=c(0,6),xlim=c(0,6))
 abline(0,1)
+
+
 
 
 
