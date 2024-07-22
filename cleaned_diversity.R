@@ -17,7 +17,7 @@ library(psych)
 library(reshape)
 library(janitor)
 
-setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
+setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
 
 saplings <- read.csv("Saplings.csv")
 
