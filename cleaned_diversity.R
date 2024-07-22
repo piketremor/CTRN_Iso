@@ -67,6 +67,8 @@ all.over<-over%>%
   group_by(SITEid, PLOTid, YEAR)%>%
   reframe(overstory.total = sum(ef))
 
+head(all.over)
+
 overstory<- left_join(over.sum, all.over)
 all_tree<-left_join(overstory, sappy, by = c("SITEid", "PLOTid", "SPP", "YEAR"))
 all_tree$sap.total[is.na(all_tree$sap.total)] <- 0
@@ -170,7 +172,7 @@ require(ggeffects)
 mydf2<-ggpredict(full, terms = c("Lithic", "THIN_METH", "dew"))
 
 ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
-  geom_line(aes(linetype=group,color=group),size=1)+
+  geom_line(aes(linetype=group,color=group),linewidth=1)+
   labs(linetype="Thinning Method")+
   labs(colour = "Thinning Method")+
   #labs(x="Basal Area per Acre",y="Predicted Diversity (Hill)")+
