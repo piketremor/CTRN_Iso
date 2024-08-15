@@ -242,7 +242,13 @@ require(equivalence)
 
 tost(no.na.data$Hill,no.na.data$fit,var.equal=FALSE,epsilon=1)
 equivalence.xyplot(no.na.data$Hill~no.na.data$fit,
-                   alpha=0.05,b0.ii=0.25,b1.ii=0.25,add.smooth=TRUE)
+                   alpha=0.05,b0.ii=0.25,b1.ii=0.25,
+                   xlab="Predicted Hill Numbers",
+                   ylab="Measured Hill Numbers")
+                   #xlim=c(0,5),
+                   #ylim=c(0,5))
+
+
 
 #qqnorm(full)
 require(MuMIn)
