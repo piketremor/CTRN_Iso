@@ -17,6 +17,7 @@ library(psych)
 library(reshape)
 library(janitor)
 
+setwd("G:/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
 setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
 
 saplings <- read.csv("Saplings.csv")
@@ -95,12 +96,22 @@ clean.df <- distinct(site.water)
 
 # finally, we need the treatment data. 
 
-treat <- read.csv("CTRN_Enviro.csv")
-treat <- treat%>%
-  group_by(SITEid,PLOTid)%>%
-  top_n(.,1,wt=YEAR)
-treat.rx <- treat[c(2,3,10:14)]
-cleaned <- left_join(clean.df,treat.rx,by=c("SITEid","PLOTid"))
+### 8/15/2024 ###
+##################
+##################
+## HOLD THE PHONE!!! WE DON'T HAVE CONTROL PLOTS IN THE FOLLOWING FILE - NEED TO PATCH THIS - IT IS A PROBLEM. 
+
+# 8/15/2024 - patched
+
+
+treat <- read.csv("CTRN_Enviro2_20240815.csv")
+head(treat)
+#treat <- treat%>%
+#  group_by(SITEid,PLOTid)%>%
+#  top_n(.,1,wt=YEAR)
+#treat.rx <- treat[c(2,3,10:14)]
+cleaned <- left_join(clean.df,treat,by=c("SITEid","PLOTid"))
+
 
 cleaned$tst <- cleaned$YEAR-cleaned$TRT_YR
 cleaned$X[is.na(cleaned$X)] <- 0
@@ -117,11 +128,27 @@ cleaned$PCT <- as.factor(cleaned$PCT)
 cleaned$THIN_METH <- as.factor(cleaned$THIN_METH)
 head(cleaned)
 
-no.na.data <- na.omit(cleaned)
+wd.start.frame <- cleaned%>%
+  group_by(SITEid,PLOTid,TRT_YR)%>%
+  summarize(c = mean(elevation))
+wd.start.frame <- wd.start.frame[1:3]
+wd.start.frame <- dplyr::rename(wd.start.frame,START_YR=TRT_YR)
+wd.start.frame
+cleaned <- left_join(cleaned,wd.start.frame)
+wd.calibrate <- dplyr::filter(cleaned,tst>-1)
 
+wd.calib <- wd.calibrate%>%
+  group_by(SITEid,PLOTid,TRT_YR)%>%
+  mutate(run.wd = cumsum(WD))
+
+#wd.calib[c(1,2,47,55,65,66)]
+
+no.na.data <- na.omit(wd.calib)
+
+unique(no.na.data$SITEid)
 model.null<- lm(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
                    vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
-                   Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst, data= no.na.data, na.action=na.omit)
+                   Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd, data= no.na.data, na.action=na.omit)
 summary(model.null)
 require(MASS)
 mod.step <- model.null%>%
@@ -130,13 +157,14 @@ summary(mod.step)
 require(performance)
 check_collinearity(mod.step)
 
-mod1 <- lm(Hill~Planform+Lithic+WD+REMOVAL+THIN_METH+tst,data=no.na.data)
+mod1 <- lm(Hill~REMOVAL+THIN_METH+run.wd,data=no.na.data)
+summary(mod1)
 no.na.data <- dplyr::filter(no.na.data,Hill>0)
 summary(mod1)
 require(leaps)
 models.ov <- regsubsets(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
                           vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
-                          Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst,really.big = TRUE,
+                          Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd,really.big = TRUE,
                         data = no.na.data,method="exhaustive")
 summary(models.ov)
 res.sum <- summary(models.ov)
@@ -146,7 +174,7 @@ data.frame(
   CP = which.min(res.sum$cp),
   BIC = which.min(res.sum$bic)
 )
-mod2 <- lm(Hill~tmean+Profile+ppt+Densic+Lithic+THIN_METH,data=no.na.data)
+mod2 <- lm(Hill~tmean+vpdmin+Densic+Lithic+Redox+THIN_METH+ppt+Parent,data=no.na.data)
 check_collinearity(mod2)
 summary(mod2)
 AIC(mod1,mod2)
@@ -155,18 +183,27 @@ library(nlme)
 library(regclass)
 
 check_distribution(cleaned$Hill)
-
-cleaned <- groupedData(Hill~1|SITEid/PLOTid,data=cleaned)
+plot(density(cleaned$Hill))
+cleaned <- groupedData(Hill~YEAR|SITEid/PLOTid,data=no.na.data)
 plot(density(cleaned$Hill))
 full <- lme(Hill~dew+Lithic+THIN_METH,
-            data=cleaned,
+            data=no.na.data,
             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
-            random=~1|SITEid/PLOTid,
+            random=~1|SITEid,
             na.action=na.omit,method="REML")
+
+
 summary(full)
 performance(full)
 plot(full)
 AIC(full,mod1,mod.step)
+
+require(MuMIn)
+r.squaredGLMM(full)
+
+
+
+
 
 require(ggeffects)
 mydf2<-ggpredict(full, terms = c("Lithic", "THIN_METH", "dew"))
@@ -201,8 +238,11 @@ legend(0.1,6,unique(no.na.data$THIN_METH),col=1:length(no.na.data$THIN_METH),pch
 abline(0,1,col="gray30",lty=3)
 cor(no.na.data$Hill,no.na.data$fit)
 
+require(equivalence)
 
-
+tost(no.na.data$Hill,no.na.data$fit,var.equal=FALSE,epsilon=1)
+equivalence.xyplot(no.na.data$Hill~no.na.data$fit,
+                   alpha=0.05,b0.ii=0.25,b1.ii=0.25,add.smooth=TRUE)
 
 #qqnorm(full)
 require(MuMIn)
