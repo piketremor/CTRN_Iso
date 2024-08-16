@@ -230,6 +230,7 @@ plot(density(cleaner$Hill))
 #no.na.data$lithic.depth <- ifelse(no.na.data$Lithic>0,no.na.data$Lithic,NA)
 cleaner2 <- dplyr::filter(cleaner,tst>-1)
 
+
 full <- lme(Hill~dew+THIN_METH, ## winner
             data=cleaner,
             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
@@ -237,6 +238,7 @@ full <- lme(Hill~dew+THIN_METH, ## winner
             na.action=na.omit,method="REML")
 plot(full)
 summary(full)
+
 
 full2 <- lme(Hill~dew+THIN_METH, ## winner
             data=cleaner2,
@@ -273,7 +275,7 @@ ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
   geom_line(aes(linetype=group,color=group),linewidth=1)+
   labs(linetype="Thinning Method")+
   labs(colour = "Thinning Method")+
-  #labs(x="Basal Area per Acre",y="Predicted Diversity (Hill)")+
+  labs(x="Dew Point",y="Predicted Diversity (Hill)")+
   #ylim(0,55)+
   #xlim(4,6)+
   #facet_wrap(~facet)+
