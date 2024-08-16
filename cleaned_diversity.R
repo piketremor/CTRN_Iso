@@ -133,6 +133,8 @@ cleaned$tst <- cleaned$YEAR-cleaned$TRT_YR
 cleaned$X[is.na(cleaned$X)] <- 0
 cleaned <- dplyr::filter(cleaned,X>0)
 
+
+# changing these back to keep NA, otherwise we end up with 0 inflated predictors
 #cleaned$Redox[is.na(cleaned$Redox)] <-0
 #cleaned$Lithic[is.na(cleaned$Lithic)] <-0
 #cleaned$Densic[is.na(cleaned$Densic)] <-0
@@ -164,15 +166,15 @@ wd.df <- wd.calib[c(1,2,3,66)]
 #wd.calib[c(1,2,47,55,65,66)]
 
 cleaner <- left_join(cleaned,wd.df)
+cleaner <- dplyr::filter(cleaner,Shannon>0)
 
-unique(no.na.data$SITEid)
 model.null<- lm(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
                    vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
                    Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd, data= cleaner, na.action=na.omit)
 summary(model.null)
 require(MASS)
 mod.step <- model.null%>%
-  stepAIC(trace=FALSE)
+  stepAIC(trace=FALSE,na.rm=TRUE)
 summary(mod.step)
 require(performance)
 check_collinearity(mod.step)
@@ -210,7 +212,6 @@ plot(mod3)
 names(cleaner)
 
 
-pairs[cleaner(5,13,19,29,42,54)]
 df <- cleaner[c(5,13,19,29,42,54)]
 pairs(df)
 
@@ -221,23 +222,23 @@ plot(mod2)
 library(nlme)
 library(regclass)
 
-check_distribution(cleaned$Hill)
+check_distribution(cleaner$Hill)
 plot(density(cleaned$Hill))
 cleaner <- groupedData(Hill~YEAR|SITEid/PLOTid,data=cleaner)
-plot(density(cleaned$Hill))
+plot(density(cleaner$Hill))
 #no.na.data$lithic.dummy <- ifelse(no.na.data$Lithic>0,1,0)
 #no.na.data$lithic.depth <- ifelse(no.na.data$Lithic>0,no.na.data$Lithic,NA)
 cleaner2 <- dplyr::filter(cleaner,tst>-1)
 
 full <- lme(Hill~dew+THIN_METH, ## winner
-            data=cleaner2,
+            data=cleaner,
             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
             random=~1|SITEid/PLOTid,
             na.action=na.omit,method="REML")
 plot(full)
 summary(full)
 
-full2 <- lme(Hill~dew+THIN_METH+elevation, ## winner
+full2 <- lme(Hill~dew+THIN_METH, ## winner
             data=cleaner2,
             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
             random=~1|SITEid/PLOTid,
@@ -307,11 +308,11 @@ require(equivalence)
 
 tost(cleaner$Hill,cleaner$fit,var.equal=FALSE,epsilon=1)
 equivalence.xyplot(cleaner$Hill~cleaner$fit,
-                   alpha=0.05,b0.ii=0.25,b1.ii=0.25,
+                  alpha=0.05,b0.ii=0.25,b1.ii=0.25,
                    xlab="Predicted Hill Numbers",
-                   ylab="Measured Hill Numbers")
-                   #xlim=c(0,5),
-                   #ylim=c(0,5))
+                   ylab="Observed Hill Numbers",
+                   xlim=c(0,5),
+                   ylim=c(0,5))
 
 
 
