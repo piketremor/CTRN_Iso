@@ -34,14 +34,14 @@ saplings$spec.count <- (saplings$X1.2.inch+saplings$X1.inch+saplings$X2.inch)
 sap.sum <- saplings%>%
   mutate(ef=62.5)%>%
   group_by(SITEid,PLOTid,YEAR,SPP)%>%
-  reframe(sap.total = sum(spec.count*ef))
+  reframe(sap.spp.total = sum(spec.count*ef))
 
 all.in <- saplings%>%
   mutate(ef=62.5)%>%
   group_by(SITEid,PLOTid,YEAR)%>%
   summarize(sapling.total = sum(spec.count*ef))
 
-sappy <- left_join(sap.sum,all.in)
+sappy <- left_join(all.in,sap.sum)
 head(sappy)
 
 trees <- read.csv("Trees2023.csv")
@@ -61,7 +61,7 @@ over <- filter(over, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid =
 over.sum<-over%>%
   mutate(ef = 5)%>%
   group_by(SITEid, PLOTid, YEAR, SPP)%>%
-  reframe(over.total = sum(ef))
+  reframe(over.spp.total = sum(ef))
 
 all.over<-over%>%
   mutate(ef=5)%>%
@@ -71,16 +71,32 @@ all.over<-over%>%
 head(all.over)
 
 overstory<- left_join(over.sum, all.over)
+overstory
 all_tree<-left_join(overstory, sappy, by = c("SITEid", "PLOTid", "SPP", "YEAR"))
-all_tree$sap.total[is.na(all_tree$sap.total)] <- 0
+all_tree
 all_tree$sapling.total[is.na(all_tree$sapling.total)] <- 0
-all_tree$SPP[is.na(all_tree$SPP)]<-"OTHER CONIFER"
-all_tree$prop <- (all_tree$over.total+all_tree$sap.total)/(all_tree$overstory.total+all_tree$sapling.total)
+all_tree$sap.spp.total[is.na(all_tree$sap.spp.total)] <- 0
+#all_tree$SPP[is.na(all_tree$SPP)]<-"OTHER CONIFER"
+all_tree
+all_tree$total.trees <- (all_tree$overstory.total+all_tree$sapling.total)
+all_tree
+all_tree$total.species <- (all_tree$over.spp.total+all_tree$sap.spp.total)
+all_tree
+plot(all_tree$total.trees,all_tree$total.species)
+all_tree$prop <- (all_tree$total.species/all_tree$total.trees)
+
+
+# brute force patch
+
+all_tree$total.species <- ifelse(all_tree$total.species>all_tree$total.trees,all_tree$total.trees,all_tree$total.species)
 all_tree$shann.base <- all_tree$prop*(log(all_tree$prop))
+
 dv <- all_tree%>%
   group_by(SITEid,PLOTid,YEAR)%>%
   reframe(Shannon = sum(shann.base)*-1,
           Hill = exp(Shannon))
+
+
 head(dv)
 # cleaned. 
 site.vars <- read.csv("CTRN_SiteVariables_20240718.csv")
@@ -117,11 +133,11 @@ cleaned$tst <- cleaned$YEAR-cleaned$TRT_YR
 cleaned$X[is.na(cleaned$X)] <- 0
 cleaned <- dplyr::filter(cleaned,X>0)
 
-cleaned$Redox[is.na(cleaned$Redox)] <-0
-cleaned$Lithic[is.na(cleaned$Lithic)] <-0
-cleaned$Densic[is.na(cleaned$Densic)] <-0
-cleaned$Profile[is.na(cleaned$Profile)] <-0
-cleaned$Planform[is.na(cleaned$Planform)] <-0
+#cleaned$Redox[is.na(cleaned$Redox)] <-0
+#cleaned$Lithic[is.na(cleaned$Lithic)] <-0
+#cleaned$Densic[is.na(cleaned$Densic)] <-0
+#cleaned$Profile[is.na(cleaned$Profile)] <-0
+#cleaned$Planform[is.na(cleaned$Planform)] <-0
 cleaned$FERT <- 0
 #cleaned$REMOVAL <- as.factor(cleaned$REMOVAL)
 cleaned$PCT <- as.factor(cleaned$PCT)
@@ -141,14 +157,18 @@ wd.calib <- wd.calibrate%>%
   group_by(SITEid,PLOTid,TRT_YR)%>%
   mutate(run.wd = cumsum(WD))
 
+head(wd.calib)
+wd.df <- wd.calib[c(1,2,3,66)]
+
+
 #wd.calib[c(1,2,47,55,65,66)]
 
-no.na.data <- na.omit(wd.calib)
+cleaner <- left_join(cleaned,wd.df)
 
 unique(no.na.data$SITEid)
 model.null<- lm(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
                    vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
-                   Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd, data= no.na.data, na.action=na.omit)
+                   Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd, data= cleaner, na.action=na.omit)
 summary(model.null)
 require(MASS)
 mod.step <- model.null%>%
@@ -157,15 +177,16 @@ summary(mod.step)
 require(performance)
 check_collinearity(mod.step)
 
-mod1 <- lm(Hill~REMOVAL+THIN_METH+run.wd,data=no.na.data)
+mod1 <- lm(Hill~REMOVAL+THIN_METH+run.wd,data=cleaner)
 summary(mod1)
-no.na.data <- dplyr::filter(no.na.data,Hill>0)
+hist(cleaner$Hill)
+#no.na.data <- dplyr::filter(no.na.data,Hill>0)
 summary(mod1)
 require(leaps)
 models.ov <- regsubsets(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
                           vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
                           Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd,really.big = TRUE,
-                        data = no.na.data,method="exhaustive")
+                        data = cleaner,method="exhaustive")
 summary(models.ov)
 res.sum <- summary(models.ov)
 which.max(res.sum$adjr2)
@@ -174,39 +195,78 @@ data.frame(
   CP = which.min(res.sum$cp),
   BIC = which.min(res.sum$bic)
 )
-mod2 <- lm(Hill~tmean+vpdmin+Densic+Lithic+Redox+THIN_METH+ppt+Parent,data=no.na.data)
+
+mod2 <- lm(Hill~slope+dew+Winds10+Lithic+ave.WD+dep+THIN_METH,data=cleaner)
 check_collinearity(mod2)
 summary(mod2)
+
+
+mod3 <- lm(Hill~slope+dew+dep+THIN_METH+RAD+REMOVAL,data=cleaner)
+summary(mod3)
+check_collinearity(mod3)
+plot(mod3)
+
+
+names(cleaner)
+
+
+pairs[cleaner(5,13,19,29,42,54)]
+df <- cleaner[c(5,13,19,29,42,54)]
+pairs(df)
+
+AIC(mod2,mod3)
 AIC(mod1,mod2)
+
 plot(mod2)
 library(nlme)
 library(regclass)
 
 check_distribution(cleaned$Hill)
 plot(density(cleaned$Hill))
-cleaned <- groupedData(Hill~YEAR|SITEid/PLOTid,data=no.na.data)
+cleaner <- groupedData(Hill~YEAR|SITEid/PLOTid,data=cleaner)
 plot(density(cleaned$Hill))
-full <- lme(Hill~dew+Lithic+THIN_METH,
-            data=no.na.data,
+#no.na.data$lithic.dummy <- ifelse(no.na.data$Lithic>0,1,0)
+#no.na.data$lithic.depth <- ifelse(no.na.data$Lithic>0,no.na.data$Lithic,NA)
+cleaner2 <- dplyr::filter(cleaner,tst>-1)
+
+full <- lme(Hill~dew+THIN_METH, ## winner
+            data=cleaner2,
             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
-            random=~1|SITEid,
+            random=~1|SITEid/PLOTid,
             na.action=na.omit,method="REML")
+plot(full)
+summary(full)
+
+full2 <- lme(Hill~dew+THIN_METH+elevation, ## winner
+            data=cleaner2,
+            correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+            random=~1|SITEid/PLOTid,
+            na.action=na.omit,method="REML")
+plot(full2)
+AIC(full,full2)
+
+AIC(full)
 
 
+rmse(full)
+plot(cleaner$dew,cleaner$Hill)
+
+
+
+
+plot(ranef(full))
+plot(fixef(full))
 summary(full)
 performance(full)
 plot(full)
-AIC(full,mod1,mod.step)
+
 
 require(MuMIn)
 r.squaredGLMM(full)
 
 
-
-
-
 require(ggeffects)
-mydf2<-ggpredict(full, terms = c("Lithic", "THIN_METH", "dew"))
+mydf2<-ggpredict(full, terms = c("dew", "THIN_METH"))
 
 ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
   geom_line(aes(linetype=group,color=group),linewidth=1)+
@@ -215,33 +275,38 @@ ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
   #labs(x="Basal Area per Acre",y="Predicted Diversity (Hill)")+
   #ylim(0,55)+
   #xlim(4,6)+
-  facet_wrap(~facet)+
+  #facet_wrap(~facet)+
   theme_bw(18) 
-
 
 plot(full)
 rmse(full)
 
-no.na.data$fit <- predict(full,no.na.data)
-no.na.data$resid <- no.na.data$Hill-no.na.data$fit
-plot(no.na.data$fit,no.na.data$resid)
+
+cleaner$fit <- predict(full,cleaner)
+cleaner$resid <- cleaner$Hill-cleaner$fit
+rmse(full)
+mae(full)
+sum(cleaner$resid,na.rm=TRUE)*(1/length(cleaner))
+
+
+plot(cleaner$fit,cleaner$resid)
 abline(h=0)
-unique(no.na.data$THIN_METH)
-plot(no.na.data$fit,no.na.data$Hill,
+unique(cleaner$THIN_METH)
+plot(cleaner$fit,cleaner$Hill,
      ylim=c(0,6),xlim=c(0,6),
-     col=factor(no.na.data$THIN_METH),
+     col=factor(cleaner$THIN_METH),
      pch=16,cex=1.5,
      ylab="Observed Hill Diversity",
      xlab="Predicted Hill Diversity")
-legend(0.1,6,unique(no.na.data$THIN_METH),col=1:length(no.na.data$THIN_METH),pch=16)
+legend(0.1,6,unique(cleaner$THIN_METH),col=1:length(cleaner$THIN_METH),pch=16)
 
 abline(0,1,col="gray30",lty=3)
-cor(no.na.data$Hill,no.na.data$fit)
+
 
 require(equivalence)
 
-tost(no.na.data$Hill,no.na.data$fit,var.equal=FALSE,epsilon=1)
-equivalence.xyplot(no.na.data$Hill~no.na.data$fit,
+tost(cleaner$Hill,cleaner$fit,var.equal=FALSE,epsilon=1)
+equivalence.xyplot(cleaner$Hill~cleaner$fit,
                    alpha=0.05,b0.ii=0.25,b1.ii=0.25,
                    xlab="Predicted Hill Numbers",
                    ylab="Measured Hill Numbers")
@@ -253,6 +318,8 @@ equivalence.xyplot(no.na.data$Hill~no.na.data$fit,
 #qqnorm(full)
 require(MuMIn)
 r.squaredGLMM(full)
+
+
 
 
 
