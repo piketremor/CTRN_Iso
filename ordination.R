@@ -19,11 +19,14 @@ library(janitor)
 
 setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
 saplings <- read.csv("Saplings.csv")[,2:9]
+env<-read.csv("CTRN_Enviro.csv")
 
 saplings <- filter(saplings, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB") 
 saplings[saplings == "SpecAld"]<-"SA"
 saplings[saplings == "HM"]<-"EH"
 saplings[saplings == "CH"]<-"BC"
+
+env<-filter(env, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB")
 
 
 ##2018 Ordination and Data Cleaning
@@ -40,9 +43,9 @@ branch <- branch%>%
   mutate(ba.half = (0.5^2*0.005454)*X1.2.inch)%>%
   mutate(ba.one = (1.0^2*0.005454)*X1.inch)%>%
   mutate(ba.two = (2.0^2)*0.005454*X2.inch)%>%
-  mutate(sap.ba = (ba.half+ba.one+ba.two)*250)
+  mutate(sap.ba = (ba.half+ba.one+ba.two)*62.5)
 
-branch$SAP_EXP <- 250
+branch$SAP_EXP <- 62.5
 
 branch<-replace(branch, is.na(branch), 0)   
 
