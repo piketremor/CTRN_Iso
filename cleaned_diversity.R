@@ -296,7 +296,7 @@ ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
   geom_line(aes(linetype=group,color=group),linewidth=1)+
   labs(linetype="Thinning Method")+
   labs(colour = "Thinning Method")+
-  labs(x="tst",y="Predicted Diversity (Hill)")+
+  labs(x="dew point",y="Predicted Diversity (Hill)")+
   #ylim(0,5)+
   #xlim(4,6)+
   facet_wrap(~facet)+
