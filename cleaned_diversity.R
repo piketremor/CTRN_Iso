@@ -17,7 +17,7 @@ library(psych)
 library(reshape)
 library(janitor)
 
-setwd("G:/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
+#setwd("G:/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
 setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
 
 saplings <- read.csv("Saplings.csv")
@@ -130,8 +130,8 @@ cleaned <- left_join(clean.df,treat,by=c("SITEid","PLOTid"))
 
 
 cleaned$tst <- cleaned$YEAR-cleaned$TRT_YR
-cleaned$X[is.na(cleaned$X)] <- 0
-cleaned <- dplyr::filter(cleaned,X>0)
+#cleaned$X[is.na(cleaned$X)] <- 0
+#cleaned <- dplyr::filter(cleaned,X>0)
 
 
 # changing these back to keep NA, otherwise we end up with 0 inflated predictors
@@ -160,7 +160,7 @@ wd.calib <- wd.calibrate%>%
   mutate(run.wd = cumsum(WD))
 
 head(wd.calib)
-wd.df <- wd.calib[c(1,2,3,66)]
+wd.df <- wd.calib[c(1,2,3,65)]
 
 
 #wd.calib[c(1,2,47,55,65,66)]
@@ -174,7 +174,7 @@ model.null<- lm(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean
 summary(model.null)
 require(MASS)
 mod.step <- model.null%>%
-  stepAIC(trace=FALSE,na.rm=TRUE)
+  stepAIC(trace=FALSE,na.action="na.omit")
 summary(mod.step)
 require(performance)
 check_collinearity(mod.step)
@@ -228,10 +228,11 @@ cleaner <- groupedData(Hill~YEAR|SITEid/PLOTid,data=cleaner)
 plot(density(cleaner$Hill))
 #no.na.data$lithic.dummy <- ifelse(no.na.data$Lithic>0,1,0)
 #no.na.data$lithic.depth <- ifelse(no.na.data$Lithic>0,no.na.data$Lithic,NA)
-cleaner2 <- dplyr::filter(cleaner,tst>-1)
+#cleaner2 <- dplyr::filter(cleaner,tst>-1)
+cleaner$wdi <- cleaner$WD-cleaner$SWC2
+cleaner$run.wdi <- cleaner$run.wd-cleaner$SWC2
 
-
-full <- lme(Hill~dew+THIN_METH, ## winner
+full <- lme(Hill~dew+THIN_METH+tst, ## winner
             data=cleaner,
             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
             random=~1|SITEid/PLOTid,
@@ -239,57 +240,80 @@ full <- lme(Hill~dew+THIN_METH, ## winner
 plot(full)
 summary(full)
 
+full2 <- lme(Hill~dew+THIN_METH+run.wdi, ## winner
+             data=cleaner,
+             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+             random=~1|SITEid/PLOTid,
+             na.action=na.omit,method="REML")
 
-full2 <- lme(Hill~dew+THIN_METH, ## winner
-            data=cleaner2,
-            correlation=corAR1(form=~YEAR|SITEid/PLOTid),
-            random=~1|SITEid/PLOTid,
-            na.action=na.omit,method="REML")
+summary(full2)
+plot(full2)
+full3 <- lme(Hill~dew+THIN_METH+run.wdi:tst, ## winner
+             data=cleaner,
+             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+             random=~1|SITEid/PLOTid,
+             na.action=na.omit,method="REML")
+
+summary(full3)
+AIC(full,full2,full3)
+
+plot(full3)
+
+
+
+AIC(full,full2)
+
+
 plot(full2)
 AIC(full,full2)
 
-AIC(full)
+AIC(full2)
 
 
-rmse(full)
+rmse(full2)
 plot(cleaner$dew,cleaner$Hill)
 
 
 
 
-plot(ranef(full))
-plot(fixef(full))
-summary(full)
-performance(full)
-plot(full)
+plot(ranef(full2))
+plot(fixef(full2))
+summary(full2)
+performance(full2)
+plot(full2)
 
 
 require(MuMIn)
-r.squaredGLMM(full)
+r.squaredGLMM(full2)
+
+
 
 
 require(ggeffects)
-mydf2<-ggpredict(full, terms = c("dew", "THIN_METH"))
+mydf2<-ggpredict(full2, terms = c("dew", "THIN_METH","run.wdi"))
 
 ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
   geom_line(aes(linetype=group,color=group),linewidth=1)+
   labs(linetype="Thinning Method")+
   labs(colour = "Thinning Method")+
-  labs(x="Dew Point",y="Predicted Diversity (Hill)")+
-  #ylim(0,55)+
+  labs(x="tst",y="Predicted Diversity (Hill)")+
+  #ylim(0,5)+
   #xlim(4,6)+
-  #facet_wrap(~facet)+
+  facet_wrap(~facet)+
   theme_bw(18) 
 
-plot(full)
-rmse(full)
+plot(full2)
+rmse(full2)
+
+#cleaner <- na.omit(cleaner)
+cleaner$fit <- predict(full2,cleaner)
 
 
-cleaner$fit <- predict(full,cleaner)
+
 cleaner$resid <- cleaner$Hill-cleaner$fit
 rmse(full)
 mae(full)
-sum(cleaner$resid,na.rm=TRUE)*(1/length(cleaner))
+
 
 
 plot(cleaner$fit,cleaner$resid)
@@ -320,7 +344,7 @@ equivalence.xyplot(cleaner$Hill~cleaner$fit,
 
 #qqnorm(full)
 require(MuMIn)
-r.squaredGLMM(full)
+r.squaredGLMM(full2)
 
 
 
