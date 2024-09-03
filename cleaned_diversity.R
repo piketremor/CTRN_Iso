@@ -1,3 +1,12 @@
+############################################################################
+############################################################################
+#### Generate predictive models of species diversity from CTRN database ####
+############################################################################
+############################################################################
+
+# 2024 08 28 - Code originated from Lila Beck and Mike Premer
+
+
 #load packages
 dev.off()
 rm(list=ls())
@@ -17,7 +26,7 @@ library(psych)
 library(reshape)
 library(janitor)
 
-setwd("G:/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
+#setwd("G:/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
 setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
 
 saplings <- read.csv("Saplings.csv")
@@ -130,8 +139,8 @@ cleaned <- left_join(clean.df,treat,by=c("SITEid","PLOTid"))
 
 
 cleaned$tst <- cleaned$YEAR-cleaned$TRT_YR
-cleaned$X[is.na(cleaned$X)] <- 0
-cleaned <- dplyr::filter(cleaned,X>0)
+#cleaned$X[is.na(cleaned$X)] <- 0
+#cleaned <- dplyr::filter(cleaned,X>0)
 
 
 # changing these back to keep NA, otherwise we end up with 0 inflated predictors
@@ -160,7 +169,7 @@ wd.calib <- wd.calibrate%>%
   mutate(run.wd = cumsum(WD))
 
 head(wd.calib)
-wd.df <- wd.calib[c(1,2,3,66)]
+wd.df <- wd.calib[c(1,2,3,65)]
 
 
 #wd.calib[c(1,2,47,55,65,66)]
@@ -168,18 +177,23 @@ wd.df <- wd.calib[c(1,2,3,66)]
 cleaner <- left_join(cleaned,wd.df)
 cleaner <- dplyr::filter(cleaner,Shannon>0)
 
+actual.rem <- read.csv("trt_list.csv")
+act <- actual.rem[c(1,2,6)]
+cleaner <- left_join(cleaner,act)
+names(cleaner)
+
 model.null<- lm(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
                    vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
-                   Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd, data= cleaner, na.action=na.omit)
+                   Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd+actual.removed, data= cleaner, na.action=na.omit)
 summary(model.null)
 require(MASS)
 mod.step <- model.null%>%
-  stepAIC(trace=FALSE,na.rm=TRUE)
+  stepAIC(trace=FALSE,na.action="na.omit")
 summary(mod.step)
 require(performance)
 check_collinearity(mod.step)
 
-mod1 <- lm(Hill~REMOVAL+THIN_METH+run.wd,data=cleaner)
+mod1 <- lm(Hill~REMOVAL+THIN_METH+run.wd+actual.removed,data=cleaner)
 summary(mod1)
 hist(cleaner$Hill)
 #no.na.data <- dplyr::filter(no.na.data,Hill>0)
@@ -187,7 +201,7 @@ summary(mod1)
 require(leaps)
 models.ov <- regsubsets(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
                           vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
-                          Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd,really.big = TRUE,
+                          Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd+actual.removed,really.big = TRUE,
                         data = cleaner,method="exhaustive")
 summary(models.ov)
 res.sum <- summary(models.ov)
@@ -197,6 +211,7 @@ data.frame(
   CP = which.min(res.sum$cp),
   BIC = which.min(res.sum$bic)
 )
+
 
 mod2 <- lm(Hill~slope+dew+Winds10+Lithic+ave.WD+dep+THIN_METH,data=cleaner)
 check_collinearity(mod2)
@@ -228,10 +243,11 @@ cleaner <- groupedData(Hill~YEAR|SITEid/PLOTid,data=cleaner)
 plot(density(cleaner$Hill))
 #no.na.data$lithic.dummy <- ifelse(no.na.data$Lithic>0,1,0)
 #no.na.data$lithic.depth <- ifelse(no.na.data$Lithic>0,no.na.data$Lithic,NA)
-cleaner2 <- dplyr::filter(cleaner,tst>-1)
+#cleaner2 <- dplyr::filter(cleaner,tst>-1)
+cleaner$wdi <- cleaner$WD-cleaner$SWC2
+cleaner$run.wdi <- cleaner$run.wd-cleaner$SWC2
 
-
-full <- lme(Hill~dew+THIN_METH, ## winner
+full <- lme(Hill~dew+THIN_METH+tst, ## winner
             data=cleaner,
             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
             random=~1|SITEid/PLOTid,
@@ -239,57 +255,75 @@ full <- lme(Hill~dew+THIN_METH, ## winner
 plot(full)
 summary(full)
 
+full2 <- lme(Hill~dew+THIN_METH+run.wdi+actual.removed, ## winner
+             data=cleaner,
+             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+             random=~1|SITEid/PLOTid,
+             na.action=na.omit,method="REML")
 
-full2 <- lme(Hill~dew+THIN_METH, ## winner
-            data=cleaner2,
-            correlation=corAR1(form=~YEAR|SITEid/PLOTid),
-            random=~1|SITEid/PLOTid,
-            na.action=na.omit,method="REML")
+summary(full2)
+
+
+
+
+full3 <- lme(Hill~dew+THIN_METH+actual.removed+PCT+run.wdi, ## winner
+             data=cleaner,
+             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+             random=~1|SITEid/PLOTid,
+             na.action=na.omit,method="REML")
+
+AIC(full2,full3)
+
+
+
 plot(full2)
-AIC(full,full2)
-
-AIC(full)
-
-
-rmse(full)
-plot(cleaner$dew,cleaner$Hill)
 
 
 
+full4 <- lme(Hill~dew+THIN_METH+run.wdi:actual.removed, ## winner
+             data=cleaner,
+             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+             random=~1|SITEid/PLOTid,
+             na.action=na.omit,method="REML")
 
-plot(ranef(full))
-plot(fixef(full))
-summary(full)
-performance(full)
-plot(full)
+summary(full4)
+AIC(full,full2,full3,full4)
+plot(full2)
 
-
-require(MuMIn)
-r.squaredGLMM(full)
-
+rmse(full2)
+plot(ranef(full2))
+plot(fixef(full2))
+summary(full2)
+performance(full2)
 
 require(ggeffects)
-mydf2<-ggpredict(full, terms = c("dew", "THIN_METH"))
+mydf2<-ggpredict(full2, terms = c("actual.removed", "THIN_METH","dew"))
 
 ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
   geom_line(aes(linetype=group,color=group),linewidth=1)+
   labs(linetype="Thinning Method")+
   labs(colour = "Thinning Method")+
-  labs(x="Dew Point",y="Predicted Diversity (Hill)")+
-  #ylim(0,55)+
+  labs(x="BA Removed (%)",y="Predicted Diversity (Hill)")+
+  #ylim(0.5,4)+
   #xlim(4,6)+
-  #facet_wrap(~facet)+
+  facet_wrap(~facet)+
   theme_bw(18) 
 
-plot(full)
-rmse(full)
+
+summary(full2)
+plot(full2)
+plot(full2)
+rmse(full2)
+mae(full2)
 
 
-cleaner$fit <- predict(full,cleaner)
+cleaner$run.wdi[is.na(cleaner$run.wdi)] <- 0
+cleaner <- dplyr::filter(cleaner,run.wdi<0)
+
+cleaner$fit <- predict(full2,cleaner,allow.new.levels=TRUE)
 cleaner$resid <- cleaner$Hill-cleaner$fit
 rmse(full)
 mae(full)
-sum(cleaner$resid,na.rm=TRUE)*(1/length(cleaner))
 
 
 plot(cleaner$fit,cleaner$resid)
@@ -302,9 +336,7 @@ plot(cleaner$fit,cleaner$Hill,
      ylab="Observed Hill Diversity",
      xlab="Predicted Hill Diversity")
 legend(0.1,6,unique(cleaner$THIN_METH),col=1:length(cleaner$THIN_METH),pch=16)
-
 abline(0,1,col="gray30",lty=3)
-
 
 require(equivalence)
 
@@ -316,13 +348,68 @@ equivalence.xyplot(cleaner$Hill~cleaner$fit,
                    xlim=c(0,5),
                    ylim=c(0,5))
 
-
-
 #qqnorm(full)
 require(MuMIn)
-r.squaredGLMM(full)
+r.squaredGLMM(full2)
+
+# may want a 3 plot, but for now, we are good. 
+# Premer, out, 20240828
+
+###################################################
+###################################################
+###################################################
+no.na <- na.omit(cleaner)
+
+grid.lines <- nrow(no.na)
+run.wdi.pred <- seq(min(no.na$run.wdi), max(no.na$run.wdi), length.out = grid.lines)
+dew.pred <- seq(min(no.na$dew), max(no.na$dew), length.out = grid.lines)
+rem.pred <- seq(min(no.na$actual.removed,max(no.na$actual.removed)),length.out=grid.lines)
+
+xyc.low <- expand.grid(run.wdi=run.wdi.pred,
+                       dew=dew.pred,
+                       actual.removed=rem.pred,
+                       THIN_METH="low")
+
+xyc.cont <- expand.grid(x=run.wdi.pred,
+                        y=dew.pred,
+                        c=rem.pred,
+                        d="control")
+
+xyc.dom <- expand.grid(x=run.wdi.pred,
+                       y=dew.pred,
+                       c=rem.pred,
+                       d="dominant")
+
+z.pred <- matrix(predict(full2, newdata=xyc.low, level=0), 
+                 nrow=grid.lines, ncol=grid.lines)
 
 
 
+require(plot3D)
+
+persp3D(z=z.pred,theta=40,
+        phi = -0,
+        expand=1,
+        box=T,
+        border=NA,
+        polygon_offset=3,
+        pacakge="rgl",
+        zlab="Hill Diversity",
+        ylab="BA Removal (%)",
+        xlab="WDI",
+        cex.lab=1,
+        cex.axis=1,
+        ticktype="detailed")
+
+plot(z.pred)
+
+fitpoints <- as.vector(predict(test, data))
+
+require(splines)
+require(visreg)
+
+install.packages("rgl")
+require(rgl)
+plot3d(xyc.dom,type="s")
 
 
