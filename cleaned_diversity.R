@@ -182,22 +182,22 @@ act <- actual.rem[c(1,2,6)]
 cleaner <- left_join(cleaner,act)
 names(cleaner)
 
-model.null<- lm(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
-                   vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
-                   Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd+actual.removed, data= cleaner, na.action=na.omit)
-summary(model.null)
+#model.null<- lm(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
+ #                  vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
+  #                 Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd+actual.removed, data= cleaner, na.action=na.omit)
+#summary(model.null)
 require(MASS)
-mod.step <- model.null%>%
-  stepAIC(trace=FALSE,na.action="na.omit")
-summary(mod.step)
+#mod.step <- model.null%>%
+#  stepAIC(trace=FALSE,na.action="na.omit")
+#summary(mod.step)
 require(performance)
-check_collinearity(mod.step)
+#check_collinearity(mod.step)
 
-mod1 <- lm(Hill~REMOVAL+THIN_METH+run.wd+actual.removed,data=cleaner)
-summary(mod1)
-hist(cleaner$Hill)
+#mod1 <- lm(Hill~REMOVAL+THIN_METH+run.wd+actual.removed,data=cleaner)
+#summary(mod1)
+#hist(cleaner$Hill)
 #no.na.data <- dplyr::filter(no.na.data,Hill>0)
-summary(mod1)
+#summary(mod1)
 require(leaps)
 models.ov <- regsubsets(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
                           vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
@@ -254,8 +254,10 @@ full <- lme(Hill~dew+THIN_METH+tst, ## winner
             na.action=na.omit,method="REML")
 plot(full)
 summary(full)
+cleaner$run.wsi <- cleaner$run.wdi*-1
+cleaner$run.ws <- cleaner$run.wd*-1
 
-full2 <- lme(Hill~dew+THIN_METH+run.wdi+actual.removed, ## winner
+full2 <- lme(Hill~dew+THIN_METH+run.ws+actual.removed, ## winner
              data=cleaner,
              correlation=corAR1(form=~YEAR|SITEid/PLOTid),
              random=~1|SITEid/PLOTid,
@@ -264,6 +266,14 @@ full2 <- lme(Hill~dew+THIN_METH+run.wdi+actual.removed, ## winner
 summary(full2)
 
 
+
+
+plot(full2)
+
+names(cleaner)
+
+cd <- cleaner[c(5,18,68,66,53)]
+pairs(cd)
 
 
 full3 <- lme(Hill~dew+THIN_METH+actual.removed+PCT+run.wdi, ## winner
@@ -297,14 +307,14 @@ summary(full2)
 performance(full2)
 
 require(ggeffects)
-mydf2<-ggpredict(full2, terms = c("actual.removed", "THIN_METH","dew"))
+mydf2<-ggpredict(full2, terms = c("run.ws", "THIN_METH","dew"))
 
 ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
   geom_line(aes(linetype=group,color=group),linewidth=1)+
   labs(linetype="Thinning Method")+
   labs(colour = "Thinning Method")+
-  labs(x="BA Removed (%)",y="Predicted Diversity (Hill)")+
-  #ylim(0.5,4)+
+  #labs(x="BA Removed (%)",y="Predicted Diversity (Hill)")+
+  ylim(0.5,4)+
   #xlim(4,6)+
   facet_wrap(~facet)+
   theme_bw(18) 
