@@ -133,7 +133,7 @@ sapwide<-sapwide[,2:12]
 
 
 #removed these just to see if this was the reason the rda wouldn't run. It doesn't like character and variables that only had 0 as a value (like the FERT variable)
-env <- select(env, -c(OtherPlotName, Notes, ThinnedYet, Active, SitePlotID, PlotArea, PlotDimensions, X_Coordinate, Y_Coordinate, FERT, climate, sapID))
+env <- select(env, -c(sapID))
 
 ##Need to find a better way to deal with the NA's i think
 
