@@ -19,7 +19,7 @@ library(janitor)
 
 setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
 saplings <- read.csv("Saplings.csv")[,2:9]
-env<-read.csv("CTRN_Env_vars.csv")
+env<-read.csv("CTRN_Env_vars2.csv")
 
 saplings <- filter(saplings, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB") 
 saplings[saplings == "SpecAld"]<-"SA"
@@ -121,8 +121,8 @@ bark<-left_join(env, sapwide)
 names<-bark$sapID #create list of sapID to set the rownames with 
 
 #separate the datasets back out
-sapwide<-bark[,c(63:74)]
-env<-bark[,4:63]
+sapwide<-bark[,c(49:60)]
+env<-bark[,4:49]
 
 #add rownames
 rownames(sapwide)<-names
@@ -132,24 +132,86 @@ rownames(env)<-names
 sapwide<-sapwide[,2:12]
 
 
-#removed these just to see if this was the reason the rda wouldn't run. It doesn't like character and variables that only had 0 as a value (like the FERT variable)
-env <- select(env, -c(sapID))
 
-##Need to find a better way to deal with the NA's i think
+env <- subset(env, select = -sapID)
 
-#rda
-sap.rda <- rda(sapwide ~ ., data=env, na.action = na.omit)
+head(env)
+head(sapwide)
+
+env<-env%>% #converting all WD variables to water surplus variables and calculating WDI
+  mutate(
+    WDI = (ave.WD-WHC)*-1,
+    WD = WD*-1, 
+    cumulative.WD=cumulative.WD*-1, 
+    ave.WD=ave.WD*-1,
+    run.wd=run.wd*-1
+    
+  )
+
+
+sapwide[is.na(sapwide)] <- 0
+head(sapwide)
+
+
+#rda with all environmental variables (0.39)
+sap.rda <- rda(sapwide ~ ., data=env, na.action = na.exclude) 
 summary(sap.rda)
 ordiplot(sap.rda, scaling = 2, type = "text")
+RsquareAdj(sap.rda)$adj.r.squared
 
 #variable selection
-step.forward <- ordiR2step(rda(sapwide ~ 1, data=env, na.action = na.omit), scope=formula(sap.rda), R2scope = F, direction="forward", pstep=1000)
-anova(sap.rda, by="terms", step=1000)
+step.forward <- ordiR2step(rda(sapwide ~ 1, data=env, na.action = na.exclude), scope=formula(sap.rda), R2scope = F, direction="forward", pstep=1000)
+anova(sap.rda, by="terms", step=1000) 
+anova(sap.rda, step=1000)
+
 
 #reduced model
-sap.rda2<-rda(sapwide ~ wd+SWI+ppt+SWC2+WD2020+Winds10+vpdmax+tri+dep+vpdmin, data=env)
+
+#model with the variables that were included for the diversity model (0.078)
+sap.rda.div <- rda(sapwide ~ dew+THIN_METH+run.wd+actual.removed, na.action = na.exclude, data=env)
+summary(sap.rda.div)
+ordiplot(sap.rda.div, scaling = 2, type = "text")
+anova(sap.rda.div, by="terms", step=1000)
+anova(sap.rda.div, step=1000)
+anova(sap.rda.div, by="axis", step=1000)
+RsquareAdj(sap.rda.div)$adj.r.squared
+
+#model with all the variables from the forward selection procedure (0.29)
+sap.rda2<-rda(sapwide ~ ave.WD+WHC+ppt+SWC2+vpdmax+WDI+run.wd+cumulative.WD, data=env)
 summary(sap.rda2)
 ordiplot(sap.rda2, scaling = 2, type = "text")
+anova(sap.rda2, by="terms", step=1000)
+anova(sap.rda2, step=1000)
+RsquareAdj(sap.rda2)$adj.r.squared
+
+#try with either ave.WD or cumulative.WD, subtract WD and WHC together to add in soil aspect to create new variable and see how that performs
+
+
+#model without ave.WD (0.25)
+sap.rda3 <- rda(sapwide ~ WHC+ppt+vpdmax+WDI+run.wd+cumulative.WD, data=env)
+summary(sap.rda3)
+ordiplot(sap.rda3, scaling = 2, type = "text")
+anova(sap.rda3, by="terms", step=1000)
+anova(sap.rda3, step=1000)
+RsquareAdj(sap.rda3)$adj.r.squared
+
+#model without cumulative.WD (0.24)
+sap.rda4<-rda(sapwide ~ ave.WD+WHC+ppt+vpdmax+WDI+run.wd, data=env)
+summary(sap.rda4)
+ordiplot(sap.rda4, scaling = 2, type = "text")
+anova(sap.rda4, by="terms", step=1000)
+anova(sap.rda4, step=1000)
+anova(sap.rda4, by = "axis", step = 1000)
+RsquareAdj(sap.rda4)$adj.r.squared
+
+#model withouth SWC2 and with run.wd instead of cumulative wdi (0.24)
+sap.rda5<-rda(sapwide ~ ave.WD+WHC+ppt+vpdmax+WDI+run.wd, data=env)
+summary(sap.rda5)
+ordiplot(sap.rda5, scaling = 2, type = "text")
+anova(sap.rda5, by="terms", step=1000)
+anova(sap.rda5, step=1000)
+anova(sap.rda5, by = "axis", step = 1000)
+RsquareAdj(sap.rda5)$adj.r.squared
 
 
 
