@@ -26,8 +26,8 @@ library(psych)
 library(reshape)
 library(janitor)
 
-#setwd("G:/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
-setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
+setwd("~/Google Drive//My Drive/CTRN_CFRU_Share/raw/csv")
+#setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
 
 saplings <- read.csv("Saplings.csv")
 
@@ -81,43 +81,89 @@ head(all.over)
 
 overstory<- left_join(over.sum, all.over)
 overstory
-all_tree<-left_join(overstory, sappy, by = c("SITEid", "PLOTid", "SPP", "YEAR"))
-all_tree
-all_tree$sapling.total[is.na(all_tree$sapling.total)] <- 0
-all_tree$sap.spp.total[is.na(all_tree$sap.spp.total)] <- 0
+
+#####stop here, this is where saplings and overstory get joined together####
+
+#sapling diversity metrics
+
+sappy$sapling.total[is.na(sappy$sapling.total)]<-0
+sappy$sap.spp.total[is.na(sappy$sap.spp.total)]<-0
+sappy$sap.prop<-(sappy$sap.spp.total/sappy$sapling.total)
+sappy
+
+sappy$sap.shann.base<-sappy$sap.prop*(log(sappy$sap.prop))
+sappy
+
+sap.dv <- sappy%>%
+  group_by(SITEid,PLOTid,YEAR)%>%
+  reframe(sap.Shannon = sum(sap.shann.base)*-1,
+          sap.Hill = exp(sap.Shannon))
+sap.dv
+
+
+#overstory
+overstory$over.spp.total[is.na(overstory$over.spp.total)]<-0
+overstory$overstory.total[is.na(overstory$overstory.total)]<-0
+overstory$ov.prop<-(overstory$over.spp.total/overstory$overstory.total)
+
+
+overstory$ov.shann.base<-overstory$ov.prop*(log(overstory$ov.prop))
+overstory
+
+ov.dv<-overstory%>%
+  group_by(SITEid,PLOTid,YEAR)%>%
+  reframe(ov.Shannon = sum(ov.shann.base)*-1,
+          ov.Hill = exp(ov.Shannon))
+ov.dv
+
+#all_tree<-left_join(overstory, sappy, by = c("SITEid", "PLOTid", "SPP", "YEAR"))
+#all_tree
+#all_tree$sapling.total[is.na(all_tree$sapling.total)] <- 0
+#all_tree$sap.spp.total[is.na(all_tree$sap.spp.total)] <- 0
 #all_tree$SPP[is.na(all_tree$SPP)]<-"OTHER CONIFER"
-all_tree
-all_tree$total.trees <- (all_tree$overstory.total+all_tree$sapling.total)
-all_tree
-all_tree$total.species <- (all_tree$over.spp.total+all_tree$sap.spp.total)
-all_tree
-plot(all_tree$total.trees,all_tree$total.species)
-all_tree$prop <- (all_tree$total.species/all_tree$total.trees)
+#all_tree
+#all_tree$total.trees <- (all_tree$overstory.total+all_tree$sapling.total)
+#all_tree
+#all_tree$total.species <- (all_tree$over.spp.total+all_tree$sap.spp.total)
+#all_tree
+#plot(all_tree$total.trees,all_tree$total.species)
+#all_tree$prop <- (all_tree$total.species/all_tree$total.trees)
 
 
 # brute force patch
 
-all_tree$total.species <- ifelse(all_tree$total.species>all_tree$total.trees,all_tree$total.trees,all_tree$total.species)
-all_tree$shann.base <- all_tree$prop*(log(all_tree$prop))
+#all_tree$total.species <- ifelse(all_tree$total.species>all_tree$total.trees,all_tree$total.trees,all_tree$total.species)
+#all_tree$shann.base <- all_tree$prop*(log(all_tree$prop))
 
-dv <- all_tree%>%
-  group_by(SITEid,PLOTid,YEAR)%>%
-  reframe(Shannon = sum(shann.base)*-1,
-          Hill = exp(Shannon))
+#dv <- all_tree%>%
+#  group_by(SITEid,PLOTid,YEAR)%>%
+#  reframe(Shannon = sum(shann.base)*-1,
+  #        Hill = exp(Shannon))
 
 
-head(dv)
+#head(dv)
 # cleaned. 
 site.vars <- read.csv("CTRN_SiteVariables_20240718.csv")
-site.vars <- dplyr::rename(site.vars,SITEid=SiteID,PLOTid=PlotID)
-head(site.vars)
-site.dv <- left_join(dv,site.vars)
+#site.vars <- dplyr::rename(site.vars,SITEid=SiteID,PLOTid=PlotID)
+#head(site.vars)
+#site.dv <- left_join(dv,site.vars)
+
+
+#join to each dataframe
+site.sap.dv<-left_join(sap.dv,site.vars)
+site.ov.dv<-left_join(ov.dv,site.vars)
 
 wd <- read.csv("CTRN_WD_dataframe.csv")
 wd <- dplyr::rename(wd,SITEid=SiteID,PLOTid=PlotID,YEAR=year)
-site.water <- left_join(site.dv,wd)
-head(site.water)
-clean.df <- distinct(site.water)
+#site.water <- left_join(site.dv,wd)
+#head(site.water)
+
+site.water.sap<-left_join(site.sap.dv,wd)
+site.water.ov<-left_join(site.ov.dv,wd)
+#clean.df <- distinct(site.water)
+
+clean.sap<-distinct(site.water.sap)
+clean.ov<-distinct(site.water.ov)
 
 # finally, we need the treatment data. 
 
@@ -135,10 +181,18 @@ head(treat)
 #  group_by(SITEid,PLOTid)%>%
 #  top_n(.,1,wt=YEAR)
 #treat.rx <- treat[c(2,3,10:14)]
-cleaned <- left_join(clean.df,treat,by=c("SITEid","PLOTid"))
+#cleaned <- left_join(clean.df,treat,by=c("SITEid","PLOTid"))
+cleaned.sap<-left_join(clean.sap,treat,by=c("SITEid", "PLOTid"))
+cleaned.ov<-left_join(clean.ov,treat,by=c("SITEid", "PLOTid"))
+
+cleaned.sap$tst<-cleaned.sap$YEAR-cleaned.sap$TRT_YR
+cleaned.ov$tst<-cleaned.ov$YEAR-cleaned.ov$TRT_YR
+
+#cleaned$tst <- cleaned$YEAR-cleaned$TRT_YR
+cleaned.sap$tst<-cleaned.sap$YEAR-cleaned.sap$TRT_YR
+cleaned.ov$tst<-cleaned.ov$YEAR-cleaned.ov$TRT_YR
 
 
-cleaned$tst <- cleaned$YEAR-cleaned$TRT_YR
 #cleaned$X[is.na(cleaned$X)] <- 0
 #cleaned <- dplyr::filter(cleaned,X>0)
 
@@ -149,38 +203,91 @@ cleaned$tst <- cleaned$YEAR-cleaned$TRT_YR
 #cleaned$Densic[is.na(cleaned$Densic)] <-0
 #cleaned$Profile[is.na(cleaned$Profile)] <-0
 #cleaned$Planform[is.na(cleaned$Planform)] <-0
-cleaned$FERT <- 0
-#cleaned$REMOVAL <- as.factor(cleaned$REMOVAL)
-cleaned$PCT <- as.factor(cleaned$PCT)
-cleaned$THIN_METH <- as.factor(cleaned$THIN_METH)
-head(cleaned)
+#cleaned$FERT <- 0
 
-wd.start.frame <- cleaned%>%
+cleaned.ov$FERT<-0
+cleaned.sap$FERT<-0
+#cleaned$REMOVAL <- as.factor(cleaned$REMOVAL)
+#cleaned$PCT <- as.factor(cleaned$PCT)
+
+cleaned.ov$PCT<-as.factor(cleaned.ov$PCT)
+cleaned.sap$PCT<-as.factor(cleaned.sap$PCT)
+
+#cleaned$THIN_METH <- as.factor(cleaned$THIN_METH)
+
+cleaned.ov$THIN_METH<-as.factor(cleaned.ov$THIN_METH)
+cleaned.sap$THIN_METH<-as.factor(cleaned.sap$THIN_METH)
+#head(cleaned)
+head(cleaned.ov)
+head(cleaned.sap)
+
+#wd.start.frame <- cleaned%>%
+#  group_by(SITEid,PLOTid,TRT_YR)%>%
+#  summarize(c = mean(elevation))
+#wd.start.frame <- wd.start.frame[1:3]
+#wd.start.frame <- dplyr::rename(wd.start.frame,START_YR=TRT_YR)
+#wd.start.frame
+#cleaned <- left_join(cleaned,wd.start.frame)
+#wd.calibrate <- dplyr::filter(cleaned,tst>-1)
+
+#wd.calib <- wd.calibrate%>%
+#  group_by(SITEid,PLOTid,TRT_YR)%>%
+#  mutate(run.wd = cumsum(WD))
+
+#head(wd.calib)
+#wd.df <- wd.calib[c(1,2,3,65)]
+
+#overstory
+wd.start.frame1 <- cleaned.ov%>%
   group_by(SITEid,PLOTid,TRT_YR)%>%
   summarize(c = mean(elevation))
-wd.start.frame <- wd.start.frame[1:3]
-wd.start.frame <- dplyr::rename(wd.start.frame,START_YR=TRT_YR)
-wd.start.frame
-cleaned <- left_join(cleaned,wd.start.frame)
-wd.calibrate <- dplyr::filter(cleaned,tst>-1)
+wd.start.frame1 <- wd.start.frame1[1:3]
+wd.start.frame1 <- dplyr::rename(wd.start.frame1,START_YR=TRT_YR)
+wd.start.frame1
+cleaned.ov <- left_join(cleaned.ov,wd.start.frame1)
+wd.calibrate1 <- dplyr::filter(cleaned.ov,tst>-1)
 
-wd.calib <- wd.calibrate%>%
+wd.calib1 <- wd.calibrate1%>%
   group_by(SITEid,PLOTid,TRT_YR)%>%
   mutate(run.wd = cumsum(WD))
 
-head(wd.calib)
-wd.df <- wd.calib[c(1,2,3,65)]
+cleaner.ov<-left_join(cleaned.ov,wd.calib1)
+#saplings
+wd.start.frame2 <- cleaned.sap%>%
+  group_by(SITEid,PLOTid,TRT_YR)%>%
+  summarize(c = mean(elevation))
+wd.start.frame2 <- wd.start.frame2[1:3]
+wd.start.frame2 <- dplyr::rename(wd.start.frame2,START_YR=TRT_YR)
+wd.start.frame2
+cleaned.sap <- left_join(cleaned.sap,wd.start.frame2)
+wd.calibrate2 <- dplyr::filter(cleaned.sap,tst>-1)
 
+wd.calib2 <- wd.calibrate2%>%
+  group_by(SITEid,PLOTid,TRT_YR)%>%
+  mutate(run.wd = cumsum(WD))
 
+cleaner.sap<-left_join(cleaned.sap,wd.calib2)
 #wd.calib[c(1,2,47,55,65,66)]
 
-cleaner <- left_join(cleaned,wd.df)
-cleaner <- dplyr::filter(cleaner,Shannon>0)
+
+
+#cleaner <- left_join(cleaned,wd.df)
+#cleaner <- dplyr::filter(cleaner,Shannon>0)
+
+cleaner.sap<-dplyr::filter(cleaned.sap,sap.Shannon>0)
+cleaner.ov<-dplyr::filter(cleaned.ov,ov.Shannon>0)
 
 actual.rem <- read.csv("trt_list.csv")
 act <- actual.rem[c(1,2,6)]
-cleaner <- left_join(cleaner,act)
-names(cleaner)
+
+#cleaner <- left_join(cleaner,act)
+cleaner.sap<-left_join(cleaner.sap,act)
+cleaner.ov<-left_join(cleaner.ov,act)
+#names(cleaner)
+
+###add in overstory hill numbers to sapling dataset
+over.hill<-select(cleaner.ov, SITEid, PLOTid, ov.Hill)
+cleaner.sap<left_join(cleaner.sap, over.hill,by=c("SITEid","PLOTid"))
 
 #model.null<- lm(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
  #                  vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
@@ -199,23 +306,59 @@ require(performance)
 #no.na.data <- dplyr::filter(no.na.data,Hill>0)
 #summary(mod1)
 require(leaps)
-models.ov <- regsubsets(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
-                          vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
-                          Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd+actual.removed,really.big = TRUE,
-                        data = cleaner,method="exhaustive")
-summary(models.ov)
-res.sum <- summary(models.ov)
-which.max(res.sum$adjr2)
+#models.ov <- regsubsets(Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
+#                          vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
+#                          Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd+actual.removed,really.big = TRUE,
+#                        data = cleaner,method="exhaustive")
+names(cleaner.ov)
+models.overstory<-regsubsets(ov.Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
+                               vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
+                               Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+actual.removed,really.big = TRUE,
+                             data = cleaner.ov,method="exhaustive")
+
+
+models.sapling<-regsubsets(sap.Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
+                             vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
+                             Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+actual.removed,really.big = TRUE,
+                           data = cleaner.sap,method="exhaustive")
+#summary(models.ov)
+summary(models.overstory)
+summary(models.sapling)
+
+#res.sum <- summary(models.ov)
+#which.max(res.sum$adjr2)
+#data.frame(
+#  Adj.R2 = which.max(res.sum$adjr2),
+#  CP = which.min(res.sum$cp),
+#  BIC = which.min(res.sum$bic)
+#)
+
+
+
+res.sum1 <- summary(models.overstory)
+which.max(res.sum1$adjr2)
 data.frame(
-  Adj.R2 = which.max(res.sum$adjr2),
-  CP = which.min(res.sum$cp),
-  BIC = which.min(res.sum$bic)
+  Adj.R2 = which.max(res.sum1$adjr2),
+  CP = which.min(res.sum1$cp),
+  BIC = which.min(res.sum1$bic)
 )
 
+res.sum2 <- summary(models.sapling)
+which.max(res.sum2$adjr2)
+data.frame(
+  Adj.R2 = which.max(res.sum2$adjr2),
+  CP = which.min(res.sum2$cp),
+  BIC = which.min(res.sum2$bic)
+)
 
-mod2 <- lm(Hill~slope+dew+Winds10+Lithic+ave.WD+dep+THIN_METH,data=cleaner)
-check_collinearity(mod2)
-summary(mod2)
+#mod2 <- lm(Hill~slope+dew+Winds10+Lithic+ave.WD+dep+THIN_METH,data=cleaner)
+#check_collinearity(mod2)
+#summary(mod2)
+
+mod2.ov<-lm(ov.Hill~slope+dew+Winds10+Lithic+ave.WD+dep+THIN_METH,data=cleaner.ov)
+check_collinearity(mod2.ov)
+summary(mod2.ov)
+
 
 
 mod3 <- lm(Hill~slope+dew+dep+THIN_METH+RAD+REMOVAL,data=cleaner)
@@ -234,6 +377,7 @@ AIC(mod2,mod3)
 AIC(mod1,mod2)
 
 plot(mod2)
+
 library(nlme)
 library(regclass)
 
@@ -332,8 +476,8 @@ cleaner <- dplyr::filter(cleaner,run.wdi<0)
 
 cleaner$fit <- predict(full2,cleaner,allow.new.levels=TRUE)
 cleaner$resid <- cleaner$Hill-cleaner$fit
-rmse(full)
-mae(full)
+rmse(full2)
+mae(full2)
 
 
 plot(cleaner$fit,cleaner$resid)
@@ -358,6 +502,33 @@ equivalence.xyplot(cleaner$Hill~cleaner$fit,
                    xlim=c(0,5),
                    ylim=c(0,5))
 
+
+##equivalence hard code
+
+
+#subtract mean prediction from prediction
+mean(cleaner$fit) #1.83
+
+cleaner<-cleaner%>%
+  mutate(fit2 = cleaner$fit - 1.83)
+
+#establish equivalence interval
+#intercept (mean + or - 10%) (1.647-2.013)
+#slope (1 + or - 10%) (0.9-1.1)
+
+#fit linear regression (predicted values as independent, actual measurements as dependent)
+eq1<-lm(Hill~fit2, data=cleaner)
+plot(cleaner$fit2, cleaner$Hill, xlim=c(-1,1), ylim=c(0,5))
+     abline(lm(Hill~fit2,data=cleaner), col="red")
+     abline(1.80,1.021, lty = 2)
+     abline(1.84,1.097, lty = 2)
+     abline(v=0, col="grey80")
+     abline(h=1.58, col="grey80")
+     abline(h=2.08, col="grey80")
+     abline(0,0.75, col="lightgreen")
+     
+confint(eq1)
+summary(eq1)
 #qqnorm(full)
 require(MuMIn)
 r.squaredGLMM(full2)

@@ -28,7 +28,54 @@ saplings[saplings == "CH"]<-"BC"
 
 env<-filter(env, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB")
 
+#calculate overstory hil numbers
+trees <- read.csv("Trees2023.csv")
+locs <- read.csv("Tree_locations_species.csv")
 
+
+tree_species <- locs[c(1:3,6)]
+tree_species <- locs%>%
+  select(SITEid, PLOTid, TREE, SPP)
+
+
+
+over <- left_join(trees, tree_species)
+over <- filter(over, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB") 
+
+over.sum<-over%>%
+  mutate(ef = 5)%>%
+  group_by(SITEid, PLOTid, YEAR, SPP)%>%
+  reframe(over.spp.total = sum(ef))
+
+all.over<-over%>%
+  mutate(ef=5)%>%
+  group_by(SITEid, PLOTid, YEAR)%>%
+  reframe(overstory.total = sum(ef))
+
+head(all.over)
+
+overstory<- left_join(over.sum, all.over)
+overstory
+
+overstory$over.spp.total[is.na(overstory$over.spp.total)]<-0
+overstory$overstory.total[is.na(overstory$overstory.total)]<-0
+overstory$ov.prop<-(overstory$over.spp.total/overstory$overstory.total)
+
+
+overstory$ov.shann.base<-overstory$ov.prop*(log(overstory$ov.prop))
+overstory
+
+ov.dv<-overstory%>%
+  group_by(SITEid,PLOTid,YEAR)%>%
+  reframe(ov.Shannon = sum(ov.shann.base)*-1,
+          ov.Hill = exp(ov.Shannon))
+ov.dv
+
+#overstory1<-left_join(overstory,ov.dv)
+
+#add overstory hill numbers to env 
+
+env<-left_join(env,ov.dv)
 ##2018 Ordination and Data Cleaning
 
 
@@ -121,8 +168,8 @@ bark<-left_join(env, sapwide)
 names<-bark$sapID #create list of sapID to set the rownames with 
 
 #separate the datasets back out
-sapwide<-bark[,c(49:60)]
-env<-bark[,4:49]
+sapwide<-bark[,c(51:62)]
+env<-bark[,4:50]
 
 #add rownames
 rownames(sapwide)<-names
@@ -133,7 +180,7 @@ sapwide<-sapwide[,2:12]
 
 
 
-env <- subset(env, select = -sapID)
+#env <- subset(env, select = -sapID)
 
 head(env)
 head(sapwide)
@@ -164,17 +211,54 @@ step.forward <- ordiR2step(rda(sapwide ~ 1, data=env, na.action = na.exclude), s
 anova(sap.rda, by="terms", step=1000) 
 anova(sap.rda, step=1000)
 
+##Test individual environmental constraints
+
+###water deficit
+rda.wd<-rda(sapwide~WD,data=env,na.action=na.exclude) #0.06
+summary(rda.wd)
+RsquareAdj(rda.wd)$adj.r.squared
+
+#water deficit index
+rda.wdi<-rda(sapwide~WDI,data=env,na.action=na.exclude) #0.05
+summary(rda.wdi)
+RsquareAdj(rda.wdi)$adj.r.squared
+
+###average water deficit ##winner
+rda.avg.wd<-rda(sapwide~ave.WD,data=env,na.action=na.exclude) #0.098
+summary(rda.avg.wd)
+RsquareAdj(rda.avg.wd)$adj.r.squared
+
+#cumulative water deficit
+rda.cumwd<-rda(sapwide~cumulative.WD,data=env,na.action=na.exclude) #0.08
+summary(rda.cumwd)
+RsquareAdj(rda.cumwd)$adj.r.squared
+
+#running water deficit
+rda.runwd<-rda(sapwide~run.wd,data=env,na.action=na.exclude) #0.03
+summary(rda.runwd)
+RsquareAdj(rda.runwd)$adj.r.squared
+
+#water holding capacity 
+rda.whc<-rda(sapwide~WHC,data=env,na.action=na.exclude) #0.049
+summary(rda.whc)
+RsquareAdj(rda.whc)$adj.r.squared
 
 #reduced model
 
-#model with the variables that were included for the diversity model (0.078)
-sap.rda.div <- rda(sapwide ~ dew+THIN_METH+run.wd+actual.removed, na.action = na.exclude, data=env)
+#model with the variables that were included for the diversity model and average water deficit (0.134)
+sap.rda.div <- rda(sapwide ~ dew+THIN_METH+ave.WD+actual.removed+ov.Hill, na.action = na.exclude, data=env)
 summary(sap.rda.div)
 ordiplot(sap.rda.div, scaling = 2, type = "text")
 anova(sap.rda.div, by="terms", step=1000)
 anova(sap.rda.div, step=1000)
 anova(sap.rda.div, by="axis", step=1000)
 RsquareAdj(sap.rda.div)$adj.r.squared
+
+
+rda.test<-rda(sapwide ~ vpdmax+THIN_METH+ave.WD+actual.removed+WDI, na.action = na.exclude, data=env)
+summary(rda.test)
+ordiplot(rda.test, scaling = 2, type = "text")
+RsquareAdj(rda.test)$adj.r.squared
 
 #model with all the variables from the forward selection procedure (0.29)
 sap.rda2<-rda(sapwide ~ ave.WD+WHC+ppt+SWC2+vpdmax+WDI+run.wd+cumulative.WD, data=env)
@@ -183,8 +267,6 @@ ordiplot(sap.rda2, scaling = 2, type = "text")
 anova(sap.rda2, by="terms", step=1000)
 anova(sap.rda2, step=1000)
 RsquareAdj(sap.rda2)$adj.r.squared
-
-#try with either ave.WD or cumulative.WD, subtract WD and WHC together to add in soil aspect to create new variable and see how that performs
 
 
 #model without ave.WD (0.25)
