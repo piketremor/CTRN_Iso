@@ -27,7 +27,7 @@ library(reshape)
 library(janitor)
 
 setwd("~/Google Drive//My Drive/CTRN_CFRU_Share/raw/csv")
-#setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
+setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
 
 saplings <- read.csv("Saplings.csv")
 
@@ -311,6 +311,33 @@ require(leaps)
 #                          Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+run.wd+actual.removed,really.big = TRUE,
 #                        data = cleaner,method="exhaustive")
 names(cleaner.ov)
+ov.hill <- cleaner.ov[c(1,2,3,5)]
+
+# great, now you can either run the overstory first, or just append the overstory Hill number to the understory dataframe
+## 
+cleaner.sap <- left_join(cleaner.sap,ov.hill)
+
+models.sapling<-regsubsets(sap.Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
+                             vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
+                             Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+actual.removed+ov.Hill,really.big = TRUE,
+                           data = cleaner.sap,method="exhaustive")
+summary(models.sapling)
+plot.sap <- lm(sap.Hill~ov.Hill,data=cleaner.sap)
+summary(plot.sap)
+
+
+# what if we do this in chunks.... 
+## treat, site, soil, meteor, climate
+
+models.sapling<-lm(sap.Hill~PCT+REMOVAL+THIN_METH+tst+actual.removed+ov.Hill,
+                           data = cleaner.sap)
+
+summary(models.sapling)
+
+## for the understory, recommend adding in overstory plot summaries like.... BAPA, TPA, QMD, RD, CCF, %Spruce, %Fir
+
+
+
 models.overstory<-regsubsets(ov.Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
                                vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
                                Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+actual.removed,really.big = TRUE,
@@ -323,7 +350,6 @@ models.sapling<-regsubsets(sap.Hill~elevation+tri+tpi+roughness+slope+aspect+flo
                            data = cleaner.sap,method="exhaustive")
 #summary(models.ov)
 summary(models.overstory)
-summary(models.sapling)
 
 #res.sum <- summary(models.ov)
 #which.max(res.sum$adjr2)
@@ -343,13 +369,6 @@ data.frame(
   BIC = which.min(res.sum1$bic)
 )
 
-res.sum2 <- summary(models.sapling)
-which.max(res.sum2$adjr2)
-data.frame(
-  Adj.R2 = which.max(res.sum2$adjr2),
-  CP = which.min(res.sum2$cp),
-  BIC = which.min(res.sum2$bic)
-)
 
 #mod2 <- lm(Hill~slope+dew+Winds10+Lithic+ave.WD+dep+THIN_METH,data=cleaner)
 #check_collinearity(mod2)
