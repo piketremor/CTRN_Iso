@@ -316,14 +316,19 @@ ov.hill <- cleaner.ov[c(1,2,3,5)]
 # great, now you can either run the overstory first, or just append the overstory Hill number to the understory dataframe
 ## 
 cleaner.sap <- left_join(cleaner.sap,ov.hill)
+cleaner.sap$WDI <- cleaner.sap$ave.WD-cleaner.sap$SWC2
+cleaner.sap$cumulative.WDI <- cleaner.sap$cumulative.WD-cleaner.sap$SWC2
 
+
+## add overstory structural varibles here. 
 models.sapling<-regsubsets(sap.Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
-                             vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+Densic+Lithic+
-                             Redox+Min_depth+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+actual.removed+ov.Hill,really.big = TRUE,
+                             vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+actual.removed+ov.Hill+WDI+cumulative.WDI,really.big = TRUE,
                            data = cleaner.sap,method="exhaustive")
 summary(models.sapling)
+models.sapling$ress
 plot.sap <- lm(sap.Hill~ov.Hill,data=cleaner.sap)
 summary(plot.sap)
+
 
 
 # what if we do this in chunks.... 
