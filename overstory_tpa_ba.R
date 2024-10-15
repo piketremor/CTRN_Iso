@@ -52,6 +52,12 @@ species_summary <- tree_join_alive%>%
 #join species and plot tables together
 trees_again <- left_join(species_summary, plot_summary)
 
+#qmd
+trees_again<-trees_again%>%
+  mutate(QMD = sqrt((BAPA/TPA_TOTAL)/0.005454))
+
+write.csv(trees_again, "~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/overstory_metrics.csv")
+
 #importance values
 trees_again <- trees_again%>%
   mutate(prop_tpa = (TPA/TPA_TOTAL),

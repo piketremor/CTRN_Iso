@@ -275,6 +275,7 @@ cleaner.sap<-left_join(cleaned.sap,wd.calib2)
 #cleaner <- dplyr::filter(cleaner,Shannon>0)
 
 cleaner.sap<-dplyr::filter(cleaned.sap,sap.Shannon>0)
+
 cleaner.ov<-dplyr::filter(cleaned.ov,ov.Shannon>0)
 
 actual.rem <- read.csv("trt_list.csv")
@@ -334,10 +335,26 @@ summary(plot.sap)
 # what if we do this in chunks.... 
 ## treat, site, soil, meteor, climate
 
-models.sapling<-lm(sap.Hill~PCT+REMOVAL+THIN_METH+tst+actual.removed+ov.Hill,
+#treatments and overstory influence
+models.sapling_treat<-lm(sap.Hill~PCT+REMOVAL+THIN_METH+tst+actual.removed+ov.Hill+BAPA+TPA_TOTAL+QMD,
                            data = cleaner.sap)
 
-summary(models.sapling)
+summary(models.sapling_treat)
+
+overstory_metrics<-read.csv("overstory_metrics.csv")[,2:10]
+cleaner.sap<-left_join(cleaner.sap, overstory_metrics)
+
+saplings.soil<-lm(sap.Hill~McNab+Bolstad+Profile+SWI+Parent+Min_depth+dep+ph+ex.mg+ex.ca+ex.k+nit,
+                  data=cleaner.sap)
+
+summary(saplings.soil)
+
+cleaner.sap<-select(cleaner.sap, -c("SITEid", "PLOTid", "YEAR", "Northing_Y", "Easting_X","OtherPlotName", "ThinnedYet", "Notes", "Active", "SitePlotID", "PlotArea", "PlotDimensions", "X_Coordinate", "Y_Coordinate"))
+
+sapling.vsurf<-VSURF(x=cleaner.sap[1:396,3:ncol(cleaner.sap)], y=cleaner.sap[1:396,3])
+#throwing an error
+
+
 
 ## for the understory, recommend adding in overstory plot summaries like.... BAPA, TPA, QMD, RD, CCF, %Spruce, %Fir
 
