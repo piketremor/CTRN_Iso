@@ -296,6 +296,11 @@ anova(sap.rda5, by = "axis", step = 1000)
 RsquareAdj(sap.rda5)$adj.r.squared
 
 
+#model with VSURF selected variables from diversity code
+sap.rda.vsurf<-rda(sapwide~ppt+WDI+tst,data=env)
+summary(sap.rda.vsurf)
+ordiplot(sap.rda.vsurf, scaling = 2, type = "text")
+RsquareAdj(sap.rda.vsurf)$adj.r.squared
 
 
 

@@ -25,6 +25,7 @@ library(vegan)
 library(psych)
 library(reshape)
 library(janitor)
+library(VSURF)
 
 setwd("~/Google Drive//My Drive/CTRN_CFRU_Share/raw/csv")
 setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
@@ -321,10 +322,14 @@ cleaner.sap$WDI <- cleaner.sap$ave.WD-cleaner.sap$SWC2
 cleaner.sap$cumulative.WDI <- cleaner.sap$cumulative.WD-cleaner.sap$SWC2
 
 
-## add overstory structural varibles here. 
+## add overstory structural variables here. 
+overstory_metrics<-read.csv("overstory_metrics.csv")[,2:13]
+cleaner.sap<-left_join(cleaner.sap, overstory_metrics)
+
 models.sapling<-regsubsets(sap.Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
-                             vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+actual.removed+ov.Hill+WDI+cumulative.WDI,really.big = TRUE,
+                             vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+WD+cumulative.WD+ave.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+REMOVAL+THIN_METH+tst+actual.removed+ov.Hill+WDI+cumulative.WDI+BAPA+TPA+pp.spruce+pp.hw+pp.bf,really.big = TRUE,
                            data = cleaner.sap,method="exhaustive")
+
 summary(models.sapling)
 models.sapling$ress
 plot.sap <- lm(sap.Hill~ov.Hill,data=cleaner.sap)
@@ -332,28 +337,57 @@ summary(plot.sap)
 
 
 
+res.sum2 <- summary(models.sapling)
+which.max(res.sum2$adjr2)
+data.frame(
+  Adj.R2 = which.max(res.sum2$adjr2),
+  CP = which.min(res.sum2$cp),
+  BIC = which.min(res.sum2$bic)
+)
+
+#VSURF
+names(cleaner.sap)
+cleaner.sap<-select(cleaner.sap, -c("OtherPlotName", "ThinnedYet", "Notes", "Active", "SitePlotID", "PlotArea", "PlotDimensions", "X_Coordinate", "Y_Coordinate", "START_YR", "Northing_Y", "Easting_X"))
+names(cleaner.sap)
+cleaner.sap<-as.data.frame(cleaner.sap)
+
+#just a test
+cleaner.sap<-cleaner.sap %>% replace(is.na(.), 0)
+
+sapling.vsurf<-VSURF(cleaner.sap[,6:65], cleaner.sap[,5], na.action = na.omit) #ppt, cumulative.WDI, tst
+
+sapling.vsurf
+sapling.vsurf$varselect.thres
+sapling.vsurf$varselect.interp
+sapling.vsurf$nums.varselect
+sapling.vsurf$nums.varselect
+plot(sapling.vsurf, var.names = TRUE)
+
+v.lm.sap<-lm(sap.Hill~ppt+cumulative.WDI+tst,data=cleaner.sap)
+summary(v.lm.sap)
+
+v.sap.model <- lme(sap.Hill~ppt+cumulative.WDI+tst,
+             data=cleaner.sap,
+             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+             random=~1|SITEid/PLOTid,
+             na.action=na.omit,method="REML")
+
+
+
 # what if we do this in chunks.... 
 ## treat, site, soil, meteor, climate
 
 #treatments and overstory influence
-models.sapling_treat<-lm(sap.Hill~PCT+REMOVAL+THIN_METH+tst+actual.removed+ov.Hill+BAPA+TPA_TOTAL+QMD,
+models.sapling_treat<-lm(sap.Hill~PCT+REMOVAL+THIN_METH+tst+actual.removed+ov.Hill+BAPA+TPA_TOTAL+QMD+pp.spruce+pp.hw+pp.bf,
                            data = cleaner.sap)
 
 summary(models.sapling_treat)
 
-overstory_metrics<-read.csv("overstory_metrics.csv")[,2:10]
-cleaner.sap<-left_join(cleaner.sap, overstory_metrics)
 
 saplings.soil<-lm(sap.Hill~McNab+Bolstad+Profile+SWI+Parent+Min_depth+dep+ph+ex.mg+ex.ca+ex.k+nit,
                   data=cleaner.sap)
 
 summary(saplings.soil)
-
-cleaner.sap<-select(cleaner.sap, -c("SITEid", "PLOTid", "YEAR", "Northing_Y", "Easting_X","OtherPlotName", "ThinnedYet", "Notes", "Active", "SitePlotID", "PlotArea", "PlotDimensions", "X_Coordinate", "Y_Coordinate"))
-
-sapling.vsurf<-VSURF(x=cleaner.sap[1:396,3:ncol(cleaner.sap)], y=cleaner.sap[1:396,3])
-#throwing an error
-
 
 
 ## for the understory, recommend adding in overstory plot summaries like.... BAPA, TPA, QMD, RD, CCF, %Spruce, %Fir
@@ -373,6 +407,27 @@ models.sapling<-regsubsets(sap.Hill~elevation+tri+tpi+roughness+slope+aspect+flo
 #summary(models.ov)
 summary(models.overstory)
 
+#overstory VSURF
+names(cleaner.ov)
+cleaner.ov<-select(cleaner.ov, -c("Northing_Y", "Easting_X", "OtherPlotName", "ThinnedYet", "Notes", "SitePlotID", "PlotArea", "PlotDimensions", "X_Coordinate", "Y_Coordinate", "START_YR"))
+names(cleaner.ov)
+
+cleaner.ov<-as.data.frame(cleaner.ov)
+
+cleaner.ov<-cleaner.ov %>% replace(is.na(.), 0)
+
+ov.vsurf<-VSURF(cleaner.ov[,6:54], cleaner.ov[,5], na.action = na.omit)
+
+ov.vsurf
+ov.vsurf$varselect.thres
+ov.vsurf$varselect.interp
+ov.vsurf$nums.varselect
+ov.vsurf$nums.varselect
+plot(ov.vsurf, var.names = TRUE) #tmin, tmax, cumulative.WD
+
+v.lm.ov<-lm(ov.Hill~tmin+tmax+cumulative.WD, data=cleaner.ov)
+summary(v.lm.ov)
+
 #res.sum <- summary(models.ov)
 #which.max(res.sum$adjr2)
 #data.frame(
@@ -391,24 +446,28 @@ data.frame(
   BIC = which.min(res.sum1$bic)
 )
 
-
+model1<-lm(ov.Hill~McNab+Winds10+Parent+Redox+Min_depth+cumulative.WD+ave.WD+ex.ca,data=cleaner.ov)
+summary(model1)
+check_collinearity(model1)
+plot(model1)
+AIC(model1)
 #mod2 <- lm(Hill~slope+dew+Winds10+Lithic+ave.WD+dep+THIN_METH,data=cleaner)
 #check_collinearity(mod2)
 #summary(mod2)
 
-mod2.ov<-lm(ov.Hill~slope+dew+Winds10+Lithic+ave.WD+dep+THIN_METH,data=cleaner.ov)
-check_collinearity(mod2.ov)
-summary(mod2.ov)
+#mod2.ov<-lm(ov.Hill~slope+dew+Winds10+Lithic+ave.WD+dep+THIN_METH,data=cleaner.ov)
+#check_collinearity(mod2.ov)
+#summary(mod2.ov)
 
 
 
-mod3 <- lm(Hill~slope+dew+dep+THIN_METH+RAD+REMOVAL,data=cleaner)
-summary(mod3)
-check_collinearity(mod3)
-plot(mod3)
+#mod3 <- lm(Hill~slope+dew+dep+THIN_METH+RAD+REMOVAL,data=cleaner)
+#summary(mod3)
+#check_collinearity(mod3)
+#plot(mod3)
 
 
-names(cleaner)
+#names(cleaner)
 
 
 df <- cleaner[c(5,13,19,29,42,54)]
