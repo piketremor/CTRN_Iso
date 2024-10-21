@@ -56,7 +56,45 @@ trees_again <- left_join(species_summary, plot_summary)
 trees_again<-trees_again%>%
   mutate(QMD = sqrt((BAPA/TPA_TOTAL)/0.005454))
 
-write.csv(trees_again, "~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/overstory_metrics.csv")
+#percent spruce and fir
+percent<-trees_again%>%
+  mutate(percent.spp = (TPA/TPA_TOTAL)*100)
+
+trees_again.spruce<-percent%>%
+  filter(SPP=="RS"| SPP=="WS"|SPP=="BS")%>%
+  mutate(pp.spruce = percent.spp)
+
+trees_again.bf<-percent%>%
+  filter(SPP=="BF")%>%
+  mutate(pp.bf = percent.spp)
+
+trees_again.hw<-percent%>%
+  filter(SPP=="RM" | SPP=="WA"|SPP=="YP"|SPP=="SM"|SPP=="MM"|SPP=="QA"|SPP=="BC"|SPP=="AB"|SPP=="GB")%>%
+  mutate(pp.hw = percent.spp)
+
+trees_again<-left_join(trees_again,trees_again.spruce, by=join_by(SITEid,PLOTid,YEAR,SPP))
+
+trees_again<-left_join(trees_again, trees_again.bf, by=join_by(SITEid,PLOTid,YEAR,SPP))
+
+trees_again<-left_join(trees_again, trees_again.hw, by=join_by(SITEid,PLOTid,YEAR,SPP))
+
+#trees_again<-select(trees_again, -c("TreeBA.x","TPA_TOTAL.x","BAPA.x", "QMD.x", "TPA.x","TreeBA.y","TPA_TOTAL.y","BAPA.y","QMD.y","TPA.y","percent.spp.x","percent.spp.y"))
+
+
+trees_again$pp.spruce[is.na(trees_again$pp.spruce)]<-0
+trees_again$pp.bf[is.na(trees_again$pp.bf)]<-0
+trees_again$pp.hw[is.na(trees_again$pp.hw)]<-0
+
+
+trees_again<-select(trees_again, "SITEid", "PLOTid", "YEAR", "SPP", "pp.spruce", "pp.bf", "pp.hw")
+
+metrics<-read.csv("overstory_metrics.csv")
+
+full<-left_join(metrics, trees_again)
+full<-full[,2:13]
+
+
+write.csv(full, "~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/overstory_metrics.csv")
 
 #importance values
 trees_again <- trees_again%>%
