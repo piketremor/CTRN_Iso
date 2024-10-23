@@ -3,7 +3,7 @@
 library(dplyr)
 library(mosaic)
 library(forcats)
-library(tidyverse)
+#library(tidyverse)
 
 #load in data
 rm(list=ls())
@@ -23,6 +23,7 @@ tree_species <- tree_locations%>%
 tree_join <- left_join(trees, tree_species)
 tree_join <- filter(tree_join, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB")
 
+
 #filter for the living trees
 tree_join_alive <- filter(tree_join, STATUS == 1 | STATUS == 2 | STATUS == 4 | STATUS == 10 | STATUS == 5 | STATUS == 14)
 
@@ -34,8 +35,9 @@ tree_join_alive <- tree_join_alive%>%
 
 
 #remove NA values in basal area
-tree_join_alive<-tree_join_alive%>%
-  drop_na(BA)
+
+
+tree_join_alive$BA[is.na(tree_join_alive$BA)]<-0
 
 #basal area and tpa calculations for plot level per year
 plot_summary <- tree_join_alive%>%
@@ -56,23 +58,56 @@ trees_again <- left_join(species_summary, plot_summary)
 trees_again<-trees_again%>%
   mutate(QMD = sqrt((BAPA/TPA_TOTAL)/0.005454))
 
+ov.metrics<-trees_again%>%
+  group_by(SITEid, PLOTid, YEAR)%>%
+  summarise(TPA_TOTAL = mean(TPA_TOTAL),
+            BAPA = mean(BAPA),
+            QMD = mean(QMD))
+
+#pp.ov<-read.csv("percent_summary.csv")
+
+
+
+#full<-left_join(ov.metrics, pp.ov)
 #percent spruce and fir
 percent<-trees_again%>%
   mutate(percent.spp = (TPA/TPA_TOTAL)*100)
 
-trees_again.spruce<-percent%>%
-  filter(SPP=="RS"| SPP=="WS"|SPP=="BS")%>%
-  mutate(pp.spruce = percent.spp)
+trees_again.rs<-percent%>%
+  filter(SPP=="RS")%>%
+  mutate(pp.rs = percent.spp)
+
+trees_again.rs<-trees_again.rs[,c(1:4,11)]
+
+trees_again.ws<-percent%>%
+  filter(SPP=="WS")%>%
+  mutate(pp.ws = percent.spp)
+
+trees_again.ws<-trees_again.ws[,c(1:4,11)]
+
+trees_again.bs<-percent%>%
+  filter(SPP=="BS")%>%
+  mutate(pp.bs = percent.spp)
+
+trees_again.bs<-trees_again.bs[,c(1:4,11)]
 
 trees_again.bf<-percent%>%
   filter(SPP=="BF")%>%
   mutate(pp.bf = percent.spp)
 
+trees_again.bf<-trees_again.bf[,c(1:4,11)]
+
 trees_again.hw<-percent%>%
   filter(SPP=="RM" | SPP=="WA"|SPP=="YP"|SPP=="SM"|SPP=="MM"|SPP=="QA"|SPP=="BC"|SPP=="AB"|SPP=="GB")%>%
   mutate(pp.hw = percent.spp)
 
-trees_again<-left_join(trees_again,trees_again.spruce, by=join_by(SITEid,PLOTid,YEAR,SPP))
+trees_again.hw<-trees_again.hw[,c(1:4,11)]
+
+trees_again<-left_join(trees_again,trees_again.rs, by=join_by(SITEid,PLOTid,YEAR,SPP))
+
+trees_again<-left_join(trees_again,trees_again.ws, by=join_by(SITEid,PLOTid,YEAR,SPP))
+
+trees_again<-left_join(trees_again,trees_again.bs, by=join_by(SITEid,PLOTid,YEAR,SPP))
 
 trees_again<-left_join(trees_again, trees_again.bf, by=join_by(SITEid,PLOTid,YEAR,SPP))
 
@@ -81,20 +116,32 @@ trees_again<-left_join(trees_again, trees_again.hw, by=join_by(SITEid,PLOTid,YEA
 #trees_again<-select(trees_again, -c("TreeBA.x","TPA_TOTAL.x","BAPA.x", "QMD.x", "TPA.x","TreeBA.y","TPA_TOTAL.y","BAPA.y","QMD.y","TPA.y","percent.spp.x","percent.spp.y"))
 
 
-trees_again$pp.spruce[is.na(trees_again$pp.spruce)]<-0
+trees_again$pp.rs[is.na(trees_again$pp.rs)]<-0
+trees_again$pp.ws[is.na(trees_again$pp.ws)]<-0
+trees_again$pp.bs[is.na(trees_again$pp.bs)]<-0
 trees_again$pp.bf[is.na(trees_again$pp.bf)]<-0
 trees_again$pp.hw[is.na(trees_again$pp.hw)]<-0
 
+pp.summary<-trees_again%>%
+  group_by(SITEid, PLOTid, YEAR)%>%
+  summarise(pp.rs.avg = mean(pp.rs),
+            pp.ws.avg = mean(pp.ws),
+            pp.bs.avg = mean(pp.bs),
+            pp.bf.avg = mean(pp.bf),
+            pp.hw.avg = mean(pp.hw))
 
-trees_again<-select(trees_again, "SITEid", "PLOTid", "YEAR", "SPP", "pp.spruce", "pp.bf", "pp.hw")
-
-metrics<-read.csv("overstory_metrics.csv")
-
-full<-left_join(metrics, trees_again)
-full<-full[,2:13]
+#write.csv(pp.summary, "~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/percent_summary.csv")
 
 
-write.csv(full, "~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/overstory_metrics.csv")
+#trees_again<-select(trees_again, "SITEid", "PLOTid", "YEAR", "SPP", "pp.spruce", "pp.bf", "pp.hw")
+
+#metrics<-read.csv("overstory_metrics.csv")
+
+#full<-left_join(metrics, pp.summary)
+
+
+
+#write.csv(full, "~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/overstory_metrics.csv")
 
 #importance values
 trees_again <- trees_again%>%

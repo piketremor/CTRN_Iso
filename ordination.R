@@ -20,6 +20,8 @@ library(janitor)
 setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
 saplings <- read.csv("Saplings.csv")[,2:9]
 env<-read.csv("CTRN_Env_vars2.csv")
+ov.metrics<-read.csv("overstory_metrics.csv")
+env<-left_join(env, ov.metrics)
 
 saplings <- filter(saplings, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB") 
 saplings[saplings == "SpecAld"]<-"SA"
@@ -28,7 +30,7 @@ saplings[saplings == "CH"]<-"BC"
 
 env<-filter(env, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB")
 
-#calculate overstory hil numbers
+#calculate overstory hill numbers
 trees <- read.csv("Trees2023.csv")
 locs <- read.csv("Tree_locations_species.csv")
 
@@ -168,8 +170,8 @@ bark<-left_join(env, sapwide)
 names<-bark$sapID #create list of sapID to set the rownames with 
 
 #separate the datasets back out
-sapwide<-bark[,c(51:62)]
-env<-bark[,4:50]
+sapwide<-bark[,c(59:70)]
+env<-bark[,4:58]
 
 #add rownames
 rownames(sapwide)<-names
@@ -177,8 +179,8 @@ rownames(env)<-names
 
 #remove sapID variable
 sapwide<-sapwide[,2:12]
-
-
+names(sapwide)
+names(env)
 
 #env <- subset(env, select = -sapID)
 
@@ -297,7 +299,7 @@ RsquareAdj(sap.rda5)$adj.r.squared
 
 
 #model with VSURF selected variables from diversity code
-sap.rda.vsurf<-rda(sapwide~ppt+WDI+tst,data=env)
+sap.rda.vsurf<-rda(sapwide~TPA_TOTAL+Winds50+ppt,data=env)
 summary(sap.rda.vsurf)
 ordiplot(sap.rda.vsurf, scaling = 2, type = "text")
 RsquareAdj(sap.rda.vsurf)$adj.r.squared
