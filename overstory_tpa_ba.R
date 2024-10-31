@@ -14,7 +14,7 @@ tree_locations <- read.csv("Tree_locations_species.csv")
 #trees <- read.csv("C:/users/lila.beck/Desktop/CTRN-Thesis data/raw/Trees.csv")
 #tree_locations <- read.csv("C:/Users/lila.beck/Desktop/CTRN-Thesis data/raw/Tree_locations_species.csv")
 
-##overstory##
+#######################Basal Area and TPA#######################################
 #select for SITEid, PLOTid, and TREE to be in tree locations dataset
 tree_species <- tree_locations%>%
   select(SITEid, PLOTid, TREE, SPP)
@@ -54,7 +54,7 @@ species_summary <- tree_join_alive%>%
 #join species and plot tables together
 trees_again <- left_join(species_summary, plot_summary)
 
-#qmd
+#############QMD############################################################
 trees_again<-trees_again%>%
   mutate(QMD = sqrt((BAPA/TPA_TOTAL)/0.005454))
 
@@ -64,12 +64,9 @@ ov.metrics<-trees_again%>%
             BAPA = mean(BAPA),
             QMD = mean(QMD))
 
-#pp.ov<-read.csv("percent_summary.csv")
-
-
 
 #full<-left_join(ov.metrics, pp.ov)
-#percent spruce and fir
+##########################Percent Spruce/Fir/HW################################
 percent<-trees_again%>%
   mutate(percent.spp = (TPA/TPA_TOTAL)*100)
 
@@ -143,6 +140,36 @@ pp.summary<-trees_again%>%
 
 #write.csv(full, "~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/overstory_metrics.csv")
 
+
+##############Relative Density###################################################
+ov<-read.csv("overstory_metrics.csv")
+
+ov<-ov%>%
+  mutate(
+    relative.density = BAPA/sqrt(QMD)
+  )
+
+
+#write.csv(ov, "~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/overstory_metrics.csv")
+###############CCF#############################################################
+library(MEForLab)
+
+#calculating maximum crown width
+tree_join_alive["MCW"]<-
+  mapply(MCW, SPP = tree_join_alive$SPP, DBH = tree_join_alive$DBH)
+
+#calculating crown area
+tree_join_alive["crown.area"]<-pi*((tree_join_alive$MCW/2)^2)
+
+#calculating crown competition factor
+tree_join_alive<-tree_join_alive%>%
+  group_by(SITEid, PLOTid, YEAR)%>%
+  summarise(plot.ca = sum(crown.area))
+
+tree_join_alive["CCF"]<-tree_join_alive$plot.ca/43560
+
+
+################################################################################
 #importance values
 trees_again <- trees_again%>%
   mutate(prop_tpa = (TPA/TPA_TOTAL),
