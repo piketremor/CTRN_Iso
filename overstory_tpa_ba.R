@@ -161,13 +161,24 @@ tree_join_alive["MCW"]<-
 #calculating crown area
 tree_join_alive["crown.area"]<-pi*((tree_join_alive$MCW/2)^2)
 
+#multiply by expansion factor
+tree_join_alive<-tree_join_alive%>%
+  mutate(crown.area = crown.area*5)
+
 #calculating crown competition factor
 tree_join_alive<-tree_join_alive%>%
   group_by(SITEid, PLOTid, YEAR)%>%
   summarise(plot.ca = sum(crown.area))
 
 tree_join_alive["CCF"]<-tree_join_alive$plot.ca/43560
+#tree_join_alive<-tree_join_alive[,c(1:3,5)]
 
+#ov<-read.csv("overstory_metrics.csv")
+
+
+#trees<-left_join(ov,tree_join_alive)
+
+#write.csv(trees, "~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv/overstory_metrics.csv")
 
 ################################################################################
 #importance values

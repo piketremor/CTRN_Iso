@@ -355,7 +355,7 @@ cleaner.sap<-as.data.frame(cleaner.sap)
 
 #just a test
 cleaner.sap<-cleaner.sap %>% replace(is.na(.), 0)
-preds <- cleaner.sap[,c(6:61)]
+preds <- cleaner.sap[,c(6:63)]
 obs <- cleaner.sap[,5]
 
 sapling.vsurf<-VSURF(preds, obs) 
@@ -365,16 +365,21 @@ sapling.vsurf$varselect.thres
 sapling.vsurf$varselect.interp
 sapling.vsurf$nums.varselect
 sapling.vsurf$varselect.pred
-vars <- preds[c(22,19,49)] #ppt,Winds50,TPA_TOTAL
+vars <- preds[c(22,19,49,57,10,1,44)] 
 names(vars)
 
 
-v.lm.sap<-lm(sap.Hill~ppt+Winds50+TPA_TOTAL,data=cleaner.sap)
+v.lm.sap<-lm(sap.Hill~ppt+Winds50+TPA_TOTAL+relative.density+tmax+elevation+tst,data=cleaner.sap)
 summary(v.lm.sap)
 check_collinearity(v.lm.sap)
 
+temp.lm<-lm(sap.Hill~ppt+Winds50+TPA_TOTAL+relative.density+tmax+tst,data=cleaner.sap)
+summary(temp.lm) #better
 
-v.sap.model <- lme(sap.Hill~ppt+TPA_TOTAL+Winds50,
+elv.lm<-lm(sap.Hill~ppt+Winds50+TPA_TOTAL+relative.density+elevation+tst,data=cleaner.sap)
+summary(elv.lm)
+
+v.sap.model <- lme(sap.Hill~ppt+TPA_TOTAL+Winds50+relative.density+tmax+tst,
              data=cleaner.sap,
              correlation=corAR1(form=~YEAR|SITEid/PLOTid),
              random=~1|SITEid/PLOTid,
@@ -425,13 +430,24 @@ ov.vsurf$varselect.interp
 ov.vsurf$nums.varselect
 ov.vsurf$nums.varselect
 ov.vsurf$varselect.pred
-ov.vars<-ov.preds[c(8,9,35,36)] #tmin, tmax, cumulative.WD, ave.WD
+ov.vars<-ov.preds[c(8,35)] #tmin, tmax, cumulative.WD, ave.WD
 names(ov.vars)
 
-v.lm.ov<-lm(ov.Hill~tmin+tmax+cumulative.WD+ave.WD, data=cleaner.ov)
+v.lm.ov<-lm(ov.Hill~tmin+cumulative.WD, data=cleaner.ov)
 summary(v.lm.ov)
 check_collinearity(v.lm.ov)
 
+v.ov.model <- lme(ov.Hill~tmin+cumulative.WD,
+                   data=cleaner.ov,
+                   correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+                   random=~1|SITEid/PLOTid,
+                   na.action=na.omit,method="REML")
+summary(v.ov.model)
+
+
+
+
+##########################################
 #one by one
 avg.wd.ov<-lm(ov.Hill~tmin+tmax+ave.WD,data=cleaner.ov)
 summary(avg.wd.ov) #0.2866
