@@ -8,6 +8,8 @@ library(forcats)
 #load in data
 rm(list=ls())
 setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
+setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
+
 #setwd("G:/.shortcut-targets-by-id/1sCbm2t1PUIpbJYVOzlIrZKeVhisl4Ghv/CTRN_CFRU_Share/raw/csv")
 trees <- read.csv("Trees2023.csv")
 tree_locations <- read.csv("Tree_locations_species.csv")
@@ -175,6 +177,11 @@ tree_join_alive["CCF"]<-tree_join_alive$plot.ca/43560
 
 #ov<-read.csv("overstory_metrics.csv")
 
+check <- left_join(trees_again,tree_join_alive)
+
+plot(check$BAPA,check$CCF)
+
+# looks good here !! 
 
 #trees<-left_join(ov,tree_join_alive)
 
@@ -317,6 +324,7 @@ honk<-filter(trees_again, SITEid == "SR" & YEAR == 2018)
 ht.fit <- tree_join_alive%>%
   filter(.,SITEid=="SR"&TOT_HT>0&YEAR==2018)
 mod1 <- lm(TOT_HT~log(DBH+0.01),data=ht.fit)
+
 
 #everything in functions
 sp.fit <- function(dbh){
