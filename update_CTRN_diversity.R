@@ -112,39 +112,3 @@ data.frame(Adj.R2 = which.max(res.sum1$adjr2),CP = which.min(res.sum1$cp),BIC = 
 res.sum1
 
 # regsubsets suggests that roughness, tmean, dew, McNab, wd.time, wdi.time, WHC, SWC2, ThinMeth, all good indicators, but mind you this is for the entire dataset
-mod1 <- lm(over.Hill~tmean+dew+wdi.time*actual.removed+THIN_METH,
-           data=final.over)
-check_collinearity(mod1)
-summary(mod1)
-acf(mod1$residuals)
-dwtest(mod1)
-final.over$mean.wdi <- final.over$mean.WD-final.over$SWC2
-mod2 <- lme(Shannon~wdi.time*actual.removed+tmean+dew+THIN_METH,
-            data=final.over,
-            random=~1|SITEid,
-            na.action="na.omit",
-            method="REML",
-            #weights=varPower(0.2,form=~wdi.time),
-            correlation = corAR1(form=~1|SITEid))
-qqnorm(mod2, ~ resid(., type = "p") | SITEid, abline = c(0, 1))
-performance(mod2)
-acf(mod2$residuals)
-summary(mod2)
-plot(mod2)
-mydf2<-ggpredict(mod2, terms = c("actual.removed", "THIN_METH","dew"))
-png(filename="Overstory_diversity_CTRN.png",width=18,height=7,units="in",res=800)
-ggplot(mydf2,aes(x=x,y=exp(predicted),colour=group))+
-  geom_line(aes(linetype=group,color=group),linewidth=2)+
-  labs(linetype="Thinning Method")+
-  labs(colour = "Thinning Method")+
-  labs(x="RD Removed (%)",y="Predicted Diversity (Hill)")+
-  ylim(0,5)+
-  #xlim(4,6)+
-  facet_wrap(~facet)+
-  theme_bw(22) 
-dev.off()
-plot((mod2))
-performance(mod2)
-
-
-
