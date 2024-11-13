@@ -15,12 +15,13 @@ library(nlme)
 library(ggplot2)
 library(leaps)
 library(VSURF)
+library(performance)
 require(MEForLab)
 require(lattice)
 require(ggeffects)
 require(lmtest)
 
-#setwd("~/Google Drive//My Drive/CTRN_CFRU_Share/raw/csv")
+setwd("~/Google Drive//My Drive/CTRN_CFRU_Share/raw/csv")
 setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
 trees <- read.csv("Trees2023.csv")
 locs <- read.csv("Tree_locations_species.csv")
@@ -110,5 +111,68 @@ res.sum1 <- summary(models.ov)
 which.max(res.sum1$adjr2)
 data.frame(Adj.R2 = which.max(res.sum1$adjr2),CP = which.min(res.sum1$cp),BIC = which.min(res.sum1$bic))
 res.sum1
+
+#all variables from regsubsets selection
+model1<-lm(over.Hill~roughness+tmean+dew+Winds50+wd.time+wdi.time+WHC+SWC2+THIN_METH,data=final.over)
+summary(model1)
+check_collinearity(model1)
+plot(model1)
+AIC(model1)
+
+#one by one for variables with high correlation
+model1.a<-lm(over.Hill~roughness+Winds50+wd.time+WHC+SWC2+THIN_METH,data=final.over)
+summary(model1.a)
+
+model1.b<-lm(over.Hill~roughness+Winds50+wdi.time+WHC+SWC2+THIN_METH,data=final.over)
+summary(model1.b)
+
+model1.c<-lm(over.Hill~roughness+Winds50+tmean+WHC+SWC2+THIN_METH,data=final.over)
+summary(model1.c)
+
+model1.d<-lm(over.Hill~roughness+Winds50+dew+WHC+SWC2+THIN_METH,data=final.over)
+summary(model1.d)
+check_collinearity(model1.d) #highest 
+
+#remove variables with VIF>2
+mod.vif<-lm(over.Hill~roughness+SWC2+THIN_METH,data=final.over)
+summary(mod.vif)
+AIC(mod.vif)
+check_collinearity(mod.vif)
+
+names(final.over)
+df <- final.over[c(25,30,40, 64,32,51,58,66)]
+pairs(df)
+
+
+#all significant variables from model1, tmean and dew are highly correlated
+model2<-lm(over.Hill~roughness+tmean+dew+Winds50+WHC+THIN_METH,data=final.over)
+summary(model2)
+check_collinearity(model2)
+plot(model2)
+AIC(model2)
+
+#without dew
+model3<-lm(over.Hill~roughness+tmean+Winds50+WHC+THIN_METH,data=final.over)
+summary(model3)
+plot(model3)
+AIC(model3)
+
+#without tmean
+model4<-lm(over.Hill~roughness+dew+Winds50+WHC+THIN_METH,data=final.over)
+summary(model4)
+plot(model4)
+AIC(model4)
+check_collinearity(model4)
+
+model5<-lm(over.Hill~roughness+Winds50+WHC+THIN_METH,data=final.over)
+summary(model5)
+
+model6 <- lme(over.Hill~roughness+SWC2+THIN_METH,
+              data=final.over,
+              correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+              random=~1|SITEid/PLOTid,
+              na.action=na.omit,method="REML")
+summary(model6)
+
 
 # regsubsets suggests that roughness, tmean, dew, McNab, wd.time, wdi.time, WHC, SWC2, ThinMeth, all good indicators, but mind you this is for the entire dataset
