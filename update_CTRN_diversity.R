@@ -1,6 +1,6 @@
 ############################################################################
 ############################################################################
-#### Generate predictive models of species diversity from CTRN database ####
+#### Generate predictive models of species diversity from CTRN database (overstory) ####
 ############################################################################
 ############################################################################
 
@@ -102,77 +102,83 @@ final.over$wdi.time <- final.over$wd.time-final.over$SWC2
 ##
 names(final.over)
 require(leaps)
-models.ov <- regsubsets(over.Hill~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
+models.ov <- regsubsets(Shannon~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
                           vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+
                           wd.time+wdi.time+mean.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+THIN_METH+
                           tst+actual.removed,really.big = TRUE,
                         data = final.over,method="exhaustive")
-res.sum1 <- summary(models.ov)
-which.max(res.sum1$adjr2)
-data.frame(Adj.R2 = which.max(res.sum1$adjr2),CP = which.min(res.sum1$cp),BIC = which.min(res.sum1$bic))
-res.sum1
+
 
 #all variables from regsubsets selection
-model1<-lm(over.Hill~roughness+tmean+dew+Winds50+wd.time+wdi.time+WHC+SWC2+THIN_METH,data=final.over)
+model1<-lm(Shannon~roughness+tmean+dew+Winds50+wd.time+wdi.time+WHC+SWC2+THIN_METH,data=final.over)
 summary(model1)
 check_collinearity(model1)
 plot(model1)
 AIC(model1)
 
-#one by one for variables with high correlation
-model1.a<-lm(over.Hill~roughness+Winds50+wd.time+WHC+SWC2+THIN_METH,data=final.over)
-summary(model1.a)
 
-model1.b<-lm(over.Hill~roughness+Winds50+wdi.time+WHC+SWC2+THIN_METH,data=final.over)
-summary(model1.b)
-
-model1.c<-lm(over.Hill~roughness+Winds50+tmean+WHC+SWC2+THIN_METH,data=final.over)
-summary(model1.c)
-
-model1.d<-lm(over.Hill~roughness+Winds50+dew+WHC+SWC2+THIN_METH,data=final.over)
-summary(model1.d)
-check_collinearity(model1.d) #highest 
-
-#remove variables with VIF>2
-mod.vif<-lm(over.Hill~roughness+SWC2+THIN_METH,data=final.over)
-summary(mod.vif)
-AIC(mod.vif)
-check_collinearity(mod.vif)
 
 names(final.over)
-df <- final.over[c(25,30,40, 64,32,51,58,66)]
+df <- final.over[c(9,25,30,40,64,32,51,58,66)]
 pairs(df)
 
+#look for at effects of interactions within the model
+in.model1<-lm(Shannon~roughness+tmean+dew+Winds50+wdi.time:actual.removed+wd.time:actual.removed+WHC:actual.removed+
+                SWC2:actual.removed,data=final.over)
+summary(in.model1)
+check_collinearity(in.model1)
 
-#all significant variables from model1, tmean and dew are highly correlated
-model2<-lm(over.Hill~roughness+tmean+dew+Winds50+WHC+THIN_METH,data=final.over)
-summary(model2)
-check_collinearity(model2)
-plot(model2)
-AIC(model2)
 
-#without dew
-model3<-lm(over.Hill~roughness+tmean+Winds50+WHC+THIN_METH,data=final.over)
-summary(model3)
-plot(model3)
-AIC(model3)
+in.model2<-lm(Shannon~roughness+tmean+dew+Winds50+wdi.time:actual.removed,data=final.over)
+summary(in.model2)
 
-#without tmean
-model4<-lm(over.Hill~roughness+dew+Winds50+WHC+THIN_METH,data=final.over)
-summary(model4)
-plot(model4)
-AIC(model4)
-check_collinearity(model4)
+in.model3<-lm(Shannon~roughness+tmean+dew+Winds50+wd.time:actual.removed,data=final.over)
+summary(in.model3)
 
-model5<-lm(over.Hill~roughness+Winds50+WHC+THIN_METH,data=final.over)
-summary(model5)
+in.model4<-lm(Shannon~roughness+tmean+dew+Winds50+WHC:actual.removed,data=final.over)
+summary(in.model4)
 
-model6 <- lme(over.Hill~roughness+SWC2+THIN_METH,
+in.model5<-lm(Shannon~roughness+tmean+dew+Winds50+wdi.time:actual.removed+wdi.time:wd.time,data=final.over)
+summary(in.model5)
+
+
+model6 <- lme(Shannon~roughness+tmean+dew+Winds50+wdi.time:actual.removed+wd.time:actual.removed+wdi.time:wd.time,
               data=final.over,
               correlation=corAR1(form=~YEAR|SITEid/PLOTid),
               random=~1|SITEid/PLOTid,
               na.action=na.omit,method="REML")
 summary(model6)
+AIC(model6)
+model7 <- lme(Shannon~roughness+tmean+dew+Winds50+WHC:actual.removed,
+              data=final.over,
+              correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+              random=~1|SITEid/PLOTid,
+              na.action=na.omit,method="REML")
+summary(model7)
+AIC(model7)
 
+model8<-lme(Shannon~roughness+tmean+dew+Winds50+wdi.time:actual.removed,
+            data=final.over,
+            correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+            random=~1|SITEid/PLOTid,
+            na.action=na.omit,method="REML")
+summary(model8)
 
-# regsubsets suggests that roughness, tmean, dew, McNab, wd.time, wdi.time, WHC, SWC2, ThinMeth, all good indicators, but mind you this is for the entire dataset
+model9<-lme(Shannon~roughness+tmean+dew+Winds50+wd.time:actual.removed,
+            data=final.over,
+            correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+            random=~1|SITEid/PLOTid,
+            na.action=na.omit,method="REML")
+summary(model9)
+check_collinearity(model9)
+
+model10<-lme(Shannon~roughness+tmean+Winds50+wd.time:actual.removed,
+                     data=final.over,
+                     correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+                     random=~1|SITEid/PLOTid,
+                     na.action=na.omit,method="REML")
+summary(model10)
+check_collinearity(model10)
+plot(model10)
+rmse(model10)
+performance(model10)
