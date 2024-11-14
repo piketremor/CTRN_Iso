@@ -99,8 +99,6 @@ act <- actual.rem[c(1,2,6)]
 final.over <- left_join(cleaned.over,act)
 final.over$wdi.time <- final.over$wd.time-final.over$SWC2
 
-
-
 ###############understory time###########################
 saplings <- read.csv("Saplings.csv")
 
@@ -115,22 +113,27 @@ sap.sum <- saplings%>%
   mutate(ef=62.5)%>%
   group_by(SITEid,PLOTid,YEAR,SPP)%>%
   reframe(sap.spp.total = sum(spec.count*ef))
+sap.sum
 all.in <- saplings%>%
   mutate(ef=62.5)%>%
   group_by(SITEid,PLOTid,YEAR)%>%
   summarize(sapling.total = sum(spec.count*ef))
+all.in
 sappy <- left_join(all.in,sap.sum)
 head(sappy)
-sappy$sapling.total[is.na(sappy$sapling.total)]<-0
-sappy$sap.spp.total[is.na(sappy$sap.spp.total)]<-0
+sappy$sap.spp.total <- ifelse(sappy$sap.spp.total>sappy$sapling.total,sappy$sapling.total,sappy$sap.spp.total)
 sappy$sap.prop<-(sappy$sap.spp.total/sappy$sapling.total)
 sappy
+sappy<-filter(sappy, SPP!="NONE")
+sappy[sappy == "OT (red oak)"] <- "RO"
+unique(sappy$SPP)
 sappy$sap.shann.base<-sappy$sap.prop*(log(sappy$sap.prop))
 sappy
 sap.dv <- sappy%>%
   group_by(SITEid,PLOTid,YEAR)%>%
   reframe(sap.Shannon = sum(sap.shann.base)*-1,
           sap.Hill = exp(sap.Shannon))
+
 sap.dv
 
 forest<-left_join(sap.dv,final.over)
@@ -142,45 +145,38 @@ require(leaps)
 models.sap <- regsubsets(sap.Shannon~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
                           vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+
                           wd.time+wdi.time+mean.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+THIN_METH+
-                          tst+actual.removed,really.big = TRUE,
-                        data = forest,method="exhaustive")
+                          tst+actual.removed+bapa+tpa+qmd+RD+CCF+Shannon+over.Hill+ht40+prop.ws.avg+prop.bs.avg+
+                          prop.rs.avg+prop.hw.avg,really.big = TRUE,data = forest,method="exhaustive")
 summary(models.sap)
 
-model1<-lm(sap.Shannon~Bolstad+Planform+RAD+ppt+WHC+ex.mg+SWC2+tst,data=forest)
+model1<-lm(sap.Shannon~dew+Winds10+THIN_METH+tst+tpa+RD,data=forest)
 summary(model1)
 check_collinearity(model1)
+plot(model1)
 
-model2<-lm(sap.Shannon~Bolstad+Planform+RAD+ppt+WHC+ex.mg+SWC2+actual.removed,data=forest)
+model2<-lm(sap.Shannon~dew+Winds10+THIN_METH+tst:actual.removed+tpa+RD,data=forest)
 summary(model2)
 
-model3<-lm(sap.Shannon~Bolstad+Planform+RAD+ppt+WHC+ex.mg+SWC2+tst:actual.removed,data=forest)
+model3<-lm(sap.Shannon~dew+Winds10+THIN_METH+tst:actual.removed+RD,data=forest)
 summary(model3)
 
-model4<-lm(sap.Shannon~Bolstad+Planform+RAD+ppt+WHC:actual.removed+ex.mg+SWC2+tst,data=forest)
+model4<-lm(sap.Shannon~dew+Winds10+THIN_METH+tst:actual.removed+tpa,data=forest)
 summary(model4)
 
-model5<-lme(sap.Shannon~Bolstad+Planform+RAD+ppt+WHC+ex.mg+SWC2+tst,
+model5<-lme(sap.Shannon~dew+Winds10+actual.removed+tst+RD,
              data=forest,
              correlation=corAR1(form=~YEAR|SITEid/PLOTid),
              random=~1|SITEid/PLOTid,
              na.action=na.omit,method="REML")
 summary(model5)
 
-model6<-lme(sap.Shannon~Bolstad+Planform+RAD+ppt+WHC:actual.removed+ex.mg+SWC2+tst,
+model6<-lme(sap.Shannon~dew+THIN_METH+tst:actual.removed+RD,
             data=forest,
             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
             random=~1|SITEid/PLOTid,
             na.action=na.omit,method="REML")
 summary(model6)
-
-
-model7<-lme(sap.Shannon~Bolstad+Planform+RAD+ppt+WHC+ex.mg+SWC2+tst:actual.removed,
-            data=forest,
-            correlation=corAR1(form=~YEAR|SITEid/PLOTid),
-            random=~1|SITEid/PLOTid,
-            na.action=na.omit,method="REML")
-summary(model7)
-rmse(model7)
-plot(model7)
-check_collinearity(model7)
-performance(model7)
+rmse(model6)
+plot(model6)
+check_collinearity(model6)
+performance(model6)
