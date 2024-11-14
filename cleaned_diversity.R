@@ -133,8 +133,8 @@ ov.dv
 
 # brute force patch
 
-#all_tree$total.species <- ifelse(all_tree$total.species>all_tree$total.trees,all_tree$total.trees,all_tree$total.species)
-#all_tree$shann.base <- all_tree$prop*(log(all_tree$prop))
+all_tree$total.species <- ifelse(all_tree$total.species>all_tree$total.trees,all_tree$total.trees,all_tree$total.species)
+all_tree$shann.base <- all_tree$prop*(log(all_tree$prop))
 
 #dv <- all_tree%>%
 #  group_by(SITEid,PLOTid,YEAR)%>%
