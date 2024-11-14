@@ -164,13 +164,19 @@ model8<-lme(Shannon~roughness+tmean+dew+Winds50+wdi.time:actual.removed,
             na.action=na.omit,method="REML")
 summary(model8)
 
-model9<-lme(Shannon~roughness+tmean+dew+Winds50+wd.time:actual.removed,
+model9<-lme(Shannon~tmean+dew+wd.time:actual.removed,
             data=final.over,
             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
-            random=~1|SITEid/PLOTid,
+            random=~1|SITEid,
             na.action=na.omit,method="REML")
 summary(model9)
 check_collinearity(model9)
+performance(model9)
+plot(model9)
+
+
+
+
 
 model10<-lme(Shannon~roughness+tmean+Winds50+wd.time:actual.removed,
                      data=final.over,
