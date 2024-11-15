@@ -1,34 +1,77 @@
-#########################################################################################
-#########################################################################################
-#### Generate predictive models of species diversity from CTRN database (understory) ####
-#########################################################################################
-#########################################################################################
+###################################################################
+###################################################################
+###################################################################
+#######################OVERSTORY ORDINATION########################
+###################################################################
+###################################################################
 
-# 2024 08 28 - Code originated from Lila Beck and Mike Premer
-# updated 2024 11 07
-
-#load packages
 dev.off()
 rm(list=ls())
 library(dplyr)
+library(mosaic)
+library(forcats)
+library(tidyverse)
 library(nlme)
 library(ggplot2)
 library(leaps)
-library(VSURF)
-library(performance)
-require(MEForLab)
-require(lattice)
-require(ggeffects)
-require(lmtest)
+library(ggfortify)
+library(ggeffects)
+library(ggeasy)
+library(reshape2)
+library(vegan)
+library(psych)
+library(reshape)
+library(janitor)
 
-##################Clean data and generate overstory explainatory variables##############
-setwd("~/Google Drive//My Drive/CTRN_CFRU_Share/raw/csv")
-setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
+setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
 trees <- read.csv("Trees2023.csv")
 locs <- read.csv("Tree_locations_species.csv")
 tree_species <- locs[c(1:3,6)]
 over <- left_join(trees, tree_species)
 overstory <- over[c(2:9,27)]
+overstory$DBH[is.na(overstory$DBH)] <- 0
+overstory <- dplyr::filter(overstory,DBH>2.5)
+overstory$SPP[is.na(overstory$SPP)] <- "OH"
+overstory[overstory == "WB"]<-"PB"
+overstory[overstory == "MA"]<-"OH"
+overstory$EXP<-5
+overstory<-filter(overstory, YEAR==2018)
+overstory$BA<-(overstory$DBH^2)*0.005454
+overstory<-overstory%>%
+  mutate(BA_TPA = BA * EXP)
+plot_summary <- overstory%>%
+  group_by(SITEid, PLOTid, YEAR)%>%
+  summarise(TPA_total = sum(EXP),
+            BA_total = sum(BA_TPA))
+overstory <- overstory%>%
+  group_by(SITEid, PLOTid, YEAR, SPP)%>%
+  summarise(TPA = sum(EXP),
+            OVBA = sum(BA_TPA))
+branch<-left_join(overstory, plot_summary)
+branch <- branch%>%
+  mutate(prop_tpa = (TPA/TPA_total),
+         prop_ba = (OVBA/BA_total))
+branch <- branch%>%
+  mutate(iv = ((prop_tpa + prop_ba)/2))
+branch$sapID<-paste0(branch$SITEid,"-",branch$PLOTid)
+molten <- melt(as.data.frame(branch),id=c("sapID","iv","SPP"))
+sapwide <- dcast(molten,sapID~SPP,value.var = "iv",mean)
+sapwide[is.na(sapwide)] <- 0
+head(sapwide)
+rowSums(sapwide[2:20])
+sapordi<-metaMDS(sapwide[,2:20], distance = "bray")
+stressplot(sapordi)
+plot(sapordi)
+plot(sapordi,type="n")
+points(sapordi,display="sites",cex=2,pch=21,col="red", bg="yellow")
+text(sapordi,display="spec",cex=1.5,col="blue")
+################RDA (add in environmental constraints)#########################
+trees <- read.csv("Trees2023.csv")
+locs <- read.csv("Tree_locations_species.csv")
+tree_species <- locs[c(1:3,6)]
+over <- left_join(trees, tree_species)
+overstory <- over[c(2:9,27)]
+overstory<-filter(overstory, YEAR == 2018)
 overstory$DBH[is.na(overstory$DBH)] <- 0
 overstory <- dplyr::filter(overstory,DBH>2.5)
 overstory$SPP[is.na(overstory$SPP)] <- "OH"
@@ -99,57 +142,30 @@ act <- actual.rem[c(1,2,6)]
 final.over <- left_join(cleaned.over,act)
 final.over$wdi.time <- final.over$wd.time-final.over$SWC2
 
-###############understory time###########################
-saplings <- read.csv("Saplings.csv")
 
-saplings <- filter(saplings, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB") 
-saplings[saplings == "SpecAld"]<-"SA"
-saplings[saplings == "HM"]<-"EH"
-saplings[saplings == "CH"]<-"BC"
-saplings[saplings == "OT (red oak)"] <- "RO"
-saplings$X1.2.inch[is.na(saplings$X1.2.inch)] <- 0
-saplings$X1.inch[is.na(saplings$X1.inch)] <- 0
-saplings$X2.inch[is.na(saplings$X2.inch)] <- 0
-saplings<-filter(saplings, SPP!="NONE")
-#diversity 
-saplings$spec.count <- (saplings$X1.2.inch+saplings$X1.inch+saplings$X2.inch)
-sap.sum <- saplings%>%
-  mutate(ef=250)%>%
-  group_by(SITEid,PLOTid,CORNERid,YEAR,SPP)%>%
-  reframe(sap.spp.total = sum(spec.count*ef))
-sap.sum
-all.in <- saplings%>%
-  mutate(ef=250)%>%
-  group_by(SITEid,PLOTid,CORNERid,YEAR)%>%
-  summarize(sapling.total = sum(spec.count*ef))
-all.in
-sappy <- left_join(all.in,sap.sum)
-sappy
-sappy$sap.spp.total <- ifelse(sappy$sap.spp.total>sappy$sapling.total,sappy$sapling.total,sappy$sap.spp.total)
-sappy$sap.prop<-(sappy$sap.spp.total/sappy$sapling.total)
-sappy
-unique(sappy$SPP)
-sappy$sap.shann.base<-sappy$sap.prop*(log(sappy$sap.prop))
-sappy
-sap.dv <- sappy%>%
-  group_by(SITEid,PLOTid,CORNERid,YEAR)%>%
-  summarise(sap.Shannon = sum(sap.shann.base)*-1)
-sap.dv
-forest<-left_join(sap.dv,final.over)
-head(forest)
-##
-names(forest)
-require(leaps)
-models.sap <- regsubsets(sap.Shannon~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
-                          vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+
-                          wd.time+wdi.time+mean.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+THIN_METH+
-                          tst+actual.removed+bapa+tpa+qmd+RD+CCF+Shannon+over.Hill+ht40+prop.ws.avg+prop.bs.avg+
-                          prop.rs.avg+prop.hw.avg,really.big = TRUE,data = forest,method="exhaustive")
-summary(models.sap)
-model1<-lm(log(sap.Shannon)~roughness+Winds10+wd.time+wdi.time+ph+tst+actual.removed+tpa+CCF,data=forest)
-summary(model1)
-check_collinearity(model1)
-plot(model1)
-
-
-hist(forest$sap.Shannon)
+final.over$sapID<-paste0(final.over$SITEid,"-",final.over$PLOTid)
+#change from integer to numeric
+final.over$flowdir<-as.numeric(final.over$flowdir)
+final.over$Parent<-as.numeric(final.over$Parent)
+#join together sapling and environmental data to make sure the number of observations match
+bark<-left_join(final.over, sapwide)
+names<-bark$sapID #create list of sapID to set the rownames with 
+#separate the datasets back out
+sapwide<-bark[,c(67:86)]
+env<-bark[,4:67]
+#add rownames
+sapwide<-as.data.frame(sapwide)
+env<-as.data.frame(env)
+rownames(sapwide)<-names
+rownames(env)<-names
+#remove sapID variable
+sapwide<-sapwide[,2:20]
+names(sapwide)
+names(env)
+head(env)
+head(sapwide)
+#sapwide[is.na(sapwide)] <- 0
+head(sapwide)
+sap.rda <- rda(sapwide ~ tmean+dew+actual.removed+wd.time, data=env, na.action = na.exclude)
+summary(sap.rda)
+ordiplot(sap.rda, scaling = 2, type = "text")

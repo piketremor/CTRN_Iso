@@ -194,7 +194,7 @@ cleaned.sap$tst<-cleaned.sap$YEAR-cleaned.sap$TRT_YR
 cleaned.ov$tst<-cleaned.ov$YEAR-cleaned.ov$TRT_YR
 
 
-#cleaned$X[is.na(cleaned$X)] <- 0
+cleaned$X[is.na(cleaned$X)] <- 0
 #cleaned <- dplyr::filter(cleaned,X>0)
 
 

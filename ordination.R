@@ -19,67 +19,90 @@ library(janitor)
 
 setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
 saplings <- read.csv("Saplings.csv")[,2:9]
-env<-read.csv("CTRN_Env_vars2.csv")
-ov.metrics<-read.csv("overstory_metrics.csv")
-env<-left_join(env, ov.metrics)
 
 saplings <- filter(saplings, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB") 
 saplings[saplings == "SpecAld"]<-"SA"
 saplings[saplings == "HM"]<-"EH"
 saplings[saplings == "CH"]<-"BC"
 
-env<-filter(env, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB")
 
-#calculate overstory hill numbers
 trees <- read.csv("Trees2023.csv")
 locs <- read.csv("Tree_locations_species.csv")
-
-
 tree_species <- locs[c(1:3,6)]
-tree_species <- locs%>%
-  select(SITEid, PLOTid, TREE, SPP)
-
-
-
 over <- left_join(trees, tree_species)
-over <- filter(over, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB") 
-
-over.sum<-over%>%
-  mutate(ef = 5)%>%
-  group_by(SITEid, PLOTid, YEAR, SPP)%>%
-  reframe(over.spp.total = sum(ef))
-
-all.over<-over%>%
-  mutate(ef=5)%>%
-  group_by(SITEid, PLOTid, YEAR)%>%
-  reframe(overstory.total = sum(ef))
-
-head(all.over)
-
-overstory<- left_join(over.sum, all.over)
-overstory
-
-overstory$over.spp.total[is.na(overstory$over.spp.total)]<-0
-overstory$overstory.total[is.na(overstory$overstory.total)]<-0
-overstory$ov.prop<-(overstory$over.spp.total/overstory$overstory.total)
-
-
-overstory$ov.shann.base<-overstory$ov.prop*(log(overstory$ov.prop))
-overstory
-
-ov.dv<-overstory%>%
+overstory <- over[c(2:9,27)]
+overstory$DBH[is.na(overstory$DBH)] <- 0
+overstory <- dplyr::filter(overstory,DBH>2.5)
+overstory$SPP[is.na(overstory$SPP)] <- "OH"
+overstory[overstory == "WB"]<-"PB"
+overstory[overstory == "MA"]<-"OH"
+ht.mod <- nlme(TOT_HT~4.5+exp(a+b/(DBH+1)), # nonlinear mixed model, fitting a different HT~DBH based on species
+               data=overstory,fixed=a+b~1,random=a+b~1|SPP,na.action=na.pass,
+               start=c(a=4.5,b=-6),control=nlmeControl(returnObject = TRUE,msMaxIter = 10000,maxIter = 5000))
+ov <- overstory%>%
+  mutate(ht.fit = predict(ht.mod,.),ba = DBH^2*0.005454,ef = 5,crown.width = mapply(MCW,SPP=SPP,DBH=DBH))
+ht.40 <- ov%>%
+  filter(.,SPP=="RS")%>%
+  group_by(SITEid,PLOTid,YEAR,SPP)%>%
+  top_n(8,DBH)%>%
+  summarize(ht40 = mean(ht.fit))
+overstory.summary <- ov%>%
   group_by(SITEid,PLOTid,YEAR)%>%
-  reframe(ov.Shannon = sum(ov.shann.base)*-1,
-          ov.Hill = exp(ov.Shannon))
-ov.dv
+  summarize(bapa = sum(ba*ef),tpa = sum(ef),qmd = qmd(bapa,tpa),RD = bapa/sqrt(qmd),
+            CCF = (sum((((crown.width/2)^2)*3.14)*ef))/43560)
+sp.summary <- ov%>%
+  group_by(SITEid,PLOTid,YEAR,SPP)%>%
+  summarize(sp.bapa = sum(ba*ef),sp.tpa = sum(ef))
+shannon <- overstory.summary%>%
+  left_join(.,sp.summary)%>%
+  mutate(iv = ((sp.bapa/bapa+sp.tpa/tpa)/2),Shannons = iv*log(iv))%>%
+  group_by(SITEid,PLOTid,YEAR)%>%
+  summarize(Shannon = sum(Shannons)*-1,over.Hill = exp(Shannon))
+over.standlist <- left_join(overstory.summary,shannon)%>%
+  left_join(.,ht.40)
+# need to get the % of spruce, fir, and HW
+spec.groups <- overstory.summary%>%
+  left_join(.,sp.summary)%>%
+  mutate(prop.ws = ifelse(SPP=="WS",(sp.bapa/bapa),0),
+         prop.bs = ifelse(SPP=="BS",(sp.bapa/bapa),0),
+         prop.rs = ifelse(SPP=="RS",(sp.bapa/bapa),0),
+         prop.eh = ifelse(SPP=="EH",(sp.bapa/bapa),0),
+         prop.ab = ifelse(SPP=="AB",(sp.bapa/bapa),0),
+         prop.bf = ifelse(SPP=="BF",(sp.bapa/bapa),0),
+         prop.hw = ifelse(SPP=="BC"|SPP=="PB"|SPP=="QA"|SPP=="RM"|SPP=="GB"|SPP=="YB"|SPP=="ST"|
+                            SPP=="WILLOW"|SPP=="PC"|SPP=="BA"|SPP=="MA"|SPP=="OA"|SPP=="OH"|SPP=="WA"|SPP=="SM",sp.bapa/bapa,0))%>%
+  group_by(SITEid,PLOTid,YEAR)%>%
+  summarize(prop.ws.avg = sum(prop.ws),prop.bs.avg = sum(prop.bs),prop.rs.avg = sum(prop.rs),
+            prop.hw.avg = sum(prop.hw),prop.ab.avg = sum(prop.ab),prop.eh.avg = sum(prop.eh),prop.bf.avg = sum(prop.bf))
+over.df <- left_join(over.standlist,spec.groups)
+##
+site.vars <- read.csv("CTRN_SiteVariables_20240718.csv")
+treat <- read.csv("CTRN_Enviro2_20240815.csv")
+trt <- treat[c(1,2,4,7,8)]
+sites <- left_join(over.df,site.vars)%>%
+  left_join(.,trt)
+wd <- read.csv("CTRN_WD_dataframe.csv")
+wd <- dplyr::rename(wd,SITEid=SiteID,PLOTid=PlotID,YEAR=year)
+mean.wd <- wd%>%
+  group_by(SITEid,PLOTid)%>%
+  summarize(mean.WD=mean(WD))
+run.wd <- wd%>%
+  left_join(.,trt)%>%
+  mutate(tst = YEAR-TRT_YR)%>%
+  filter(.,tst>0)%>%
+  mutate(wd.time = cumsum(WD))
+running <- run.wd[c(1,2,4,11,12)]
+water.frame <- left_join(mean.wd,running)
+cleaned.over <- left_join(sites,water.frame)
+cleaned.over$Northing_Y[is.na(cleaned.over$Northing_Y)] <- 0
+cleaned.over <- filter(cleaned.over,Northing_Y>0)
+actual.rem <- read.csv("trt_list.csv")
+act <- actual.rem[c(1,2,6)]
+final.over <- left_join(cleaned.over,act)
+final.over$wdi.time <- final.over$wd.time-final.over$SWC2
 
-#overstory1<-left_join(overstory,ov.dv)
 
-#add overstory hill numbers to env 
-
-env<-left_join(env,ov.dv)
 ##2018 Ordination and Data Cleaning
-
 
 #Filter for just year 2018
 saplings18<-filter(saplings, YEAR == 2018)
@@ -92,9 +115,9 @@ branch <- branch%>%
   mutate(ba.half = (0.5^2*0.005454)*X1.2.inch)%>%
   mutate(ba.one = (1.0^2*0.005454)*X1.inch)%>%
   mutate(ba.two = (2.0^2)*0.005454*X2.inch)%>%
-  mutate(sap.ba = (ba.half+ba.one+ba.two)*62.5)
+  mutate(sap.ba = (ba.half+ba.one+ba.two)*250)
 
-branch$SAP_EXP <- 62.5
+branch$SAP_EXP <- 250
 
 branch<-replace(branch, is.na(branch), 0)   
 
@@ -152,52 +175,26 @@ text(sapordi,display="spec",cex=1.5,col="blue")
 
 
 ## Constrained Ordination###
-#clean the environmental data
-#env<-env[,c(2,3,4,27:65)]
-env$sapID<-paste0(env$SITEid,"-",env$PLOTid)
-env<-filter(env, YEAR==2018)
-#env<-env[,c(4:43)]
-#env<-env[,c(40, 1:39)]
-#env[is.na(env)] <- 0
-
+final.over$sapID<-paste0(final.over$SITEid,"-",final.over$PLOTid)
 #change from integer to numeric
-env$flowdir<-as.numeric(env$flowdir)
-env$Parent<-as.numeric(env$Parent)
-
+final.over$flowdir<-as.numeric(final.over$flowdir)
+final.over$Parent<-as.numeric(final.over$Parent)
 #join together sapling and environmental data to make sure the number of observations match
-bark<-left_join(env, sapwide)
+bark<-left_join(final.over, sapwide)
 #bark[is.na(bark)] <- 0
 names<-bark$sapID #create list of sapID to set the rownames with 
-
 #separate the datasets back out
-sapwide<-bark[,c(59:70)]
-env<-bark[,4:58]
-
+sapwide<-bark[,c(67:78)]
+env<-bark[,4:67]
 #add rownames
 rownames(sapwide)<-names
 rownames(env)<-names
-
 #remove sapID variable
 sapwide<-sapwide[,2:12]
 names(sapwide)
 names(env)
-
-#env <- subset(env, select = -sapID)
-
 head(env)
 head(sapwide)
-
-env<-env%>% #converting all WD variables to water surplus variables and calculating WDI
-  mutate(
-    WDI = (ave.WD-WHC)*-1,
-    WD = WD*-1, 
-    cumulative.WD=cumulative.WD*-1, 
-    ave.WD=ave.WD*-1,
-    run.wd=run.wd*-1
-    
-  )
-
-
 sapwide[is.na(sapwide)] <- 0
 head(sapwide)
 
