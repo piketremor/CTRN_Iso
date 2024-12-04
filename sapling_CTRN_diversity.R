@@ -20,6 +20,7 @@ require(MEForLab)
 require(lattice)
 require(ggeffects)
 require(lmtest)
+library(glmmTMB)
 
 ##################Clean data and generate overstory explainatory variables##############
 setwd("~/Google Drive//My Drive/CTRN_CFRU_Share/raw/csv")
@@ -146,10 +147,30 @@ models.sap <- regsubsets(sap.Shannon~elevation+tri+tpi+roughness+slope+aspect+fl
                           tst+actual.removed+bapa+tpa+qmd+RD+CCF+Shannon+over.Hill+ht40+prop.ws.avg+prop.bs.avg+
                           prop.rs.avg+prop.hw.avg,really.big = TRUE,data = forest,method="exhaustive")
 summary(models.sap)
-model1<-lm(log(sap.Shannon)~roughness+Winds10+wd.time+wdi.time+ph+tst+actual.removed+tpa+CCF,data=forest)
+model1<-lm(sap.Shannon~roughness+Winds10+wd.time+wdi.time+ph+tst+actual.removed+tpa+CCF,data=forest)
 summary(model1)
 check_collinearity(model1)
 plot(model1)
 
 
 hist(forest$sap.Shannon)
+
+forest$bapa[is.na(forest$bapa)]<-0
+forest<-filter(forest, bapa>0)
+forest$actual.removed[is.na(forest$actual.removed)]<-0
+
+sap.mod <- glmmTMB(sap.Shannon~(1|SITEid/PLOTid/CORNERid)+THIN_METH:wdi.time,
+                   data=forest,
+                   ziformula=~wdi.time*actual.removed+THIN_METH+CCF+tst,
+                   family=ziGamma(link="log"),
+                   na.action="na.omit") #best model? need to include autocorrelation
+
+resid<-residuals(sap.mod)
+
+summary(sap.mod)
+plot(resid)
+
+
+multicollinearity(sap.mod)
+
++THIN_METH:wdi.time

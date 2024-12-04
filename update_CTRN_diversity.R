@@ -105,9 +105,9 @@ require(leaps)
 models.ov <- regsubsets(Shannon~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
                           vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+
                           wd.time+wdi.time+mean.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+THIN_METH+
-                          tst+actual.removed,really.big = TRUE,
+                          tst+actual.removed+PCT,really.big = TRUE,
                         data = final.over,method="exhaustive")
-
+summary(models.ov)
 
 #all variables from regsubsets selection
 model1<-lm(Shannon~roughness+tmean+dew+Winds50+wd.time+wdi.time+WHC+SWC2+THIN_METH,data=final.over)
@@ -176,15 +176,31 @@ plot(model9)
 
 
 
+#####
+require(ggeffects)
+mydf2<-ggpredict(model9, terms = c("wd.time", "actual.removed", "dew"))
+mydf3<-predict_response(model9, terms = c("wd.time", "actual.removed", "dew"))
+
+ggplot(mydf3,aes(x=x,y=predicted,colour=group))+
+  geom_line(aes(linetype=group,color=group),linewidth=1)+
+  labs(linetype="Thinning Method")+
+  labs(colour = "Thinning Method")+
+  #labs(x="BA Removed (%)",y="Predicted Diversity (Hill)")+
+  ylim(0.5,1)+
+  #xlim(4,6)+
+  facet_wrap(~facet)+
+  theme_bw(18) 
 
 
-model10<-lme(Shannon~roughness+tmean+Winds50+wd.time:actual.removed,
-                     data=final.over,
-                     correlation=corAR1(form=~YEAR|SITEid/PLOTid),
-                     random=~1|SITEid,
-                     na.action=na.omit,method="REML")
+
+
+#PCT increases AIC slightly and has higher RMSE and lower R2
+model10<-lme(Shannon~tmean+dew+wd.time:actual.removed+PCT,
+            data=final.over,
+            correlation=corAR1(form=~YEAR|SITEid/PLOTid),
+            random=~1|SITEid,
+            na.action=na.omit,method="REML") 
 summary(model10)
 check_collinearity(model10)
-plot(model10)
-rmse(model10)
 performance(model10)
+plot(model10)
