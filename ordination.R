@@ -100,16 +100,28 @@ actual.rem <- read.csv("trt_list.csv")
 act <- actual.rem[c(1,2,6)]
 final.over <- left_join(cleaned.over,act)
 final.over$wdi.time <- final.over$wd.time-final.over$SWC2
-
+final.over<-select(final.over, -c(SPP,Lithic,Northing_Y, Easting_X,Redox,Parent,Min_depth,WD2000,WD2020))
+final.over$THIN_METH<-as.factor(final.over$THIN_METH)
+final.over$actual.removed[is.na(final.over$actual.removed)]<-0
+names(final.over)
+final.over<-left_join(saplings,final.over)
+names(final.over)
+final.over$sapID<-paste0(final.over$SITEid,"-",final.over$PLOTid,"-",final.over$CORNERid)
+#change from integer to numeric
+final.over$flowdir<-as.numeric(final.over$flowdir)
+names(final.over)
+final.over<-na.omit(final.over)
 
 ##2018 Ordination and Data Cleaning
 
 #Filter for just year 2018
 saplings18<-filter(saplings, YEAR == 2018)
+unique(saplings18$SPP)
 
 #filter for species >5%
 branch<-filter(saplings18, SPP =="PB"|SPP == "OT"|SPP=="NC"|SPP=="RM"|SPP=="RS"|SPP=="WP"|SPP=="BF"|SPP=="YB"|SPP=="EH"|SPP=="QA"|SPP=="BC")
 
+unique(branch$SPP)
 #recalculate iv values
 branch <- branch%>%
   mutate(ba.half = (0.5^2*0.005454)*X1.2.inch)%>%
@@ -132,12 +144,12 @@ branch<-branch%>%
   mutate(SAP_BA_TPA = BA * SAP_EXP)
 
 plot_summary_sap <- branch%>%
-  group_by(SITEid, PLOTid, YEAR)%>%
+  group_by(SITEid, PLOTid, CORNERid,YEAR)%>%
   summarise(SAP_TPA_total = sum(SAP_EXP),
             SAPBA_total = sum(SAP_BA_TPA))
 
 branch <- branch%>%
-  group_by(SITEid, PLOTid, YEAR, SPP)%>%
+  group_by(SITEid, PLOTid, CORNERid,YEAR, SPP)%>%
   summarise(SAP_TPA = sum(SAP_EXP),
             SAPBA = sum(SAP_BA_TPA))
 
@@ -151,8 +163,9 @@ branch <- branch%>%
 branch <- branch%>%
   mutate(iv = ((prop_tpa + prop_ba)/2))
 
+
 #create site-plot identifier
-branch$sapID<-paste0(branch$SITEid,"-",branch$PLOTid)
+branch$sapID<-paste0(branch$SITEid,"-",branch$PLOTid,"-",branch$CORNERid)
 
 #get data in long format
 molten <- melt(as.data.frame(branch),id=c("sapID","iv","SPP"))
@@ -161,34 +174,59 @@ sapwide[is.na(sapwide)] <- 0
 head(sapwide)
 # double check they all add to 1
 rowSums(sapwide[2:12])
-
+names<-sapwide$sapID
+rownames(sapwide)<-names
 
 #NMDS
 sapordi<-metaMDS(sapwide[,2:12], distance = "bray")
 stressplot(sapordi)
+sapordi
 plot(sapordi)
 
 plot(sapordi,type="n")
 points(sapordi,display="sites",cex=2,pch=21,col="red", bg="yellow")
 text(sapordi,display="spec",cex=1.5,col="blue")
 
+speciesscores<-as.data.frame(scores(sapordi)$species)
+speciesscores$species<-rownames(speciesscores)
+head(speciesscores)
+sitescores<-as.data.frame(scores(sapordi)$sites)
+sitescores$site<-rownames(sitescores)
+head(sitescores)
+
+#could add in a grouping variable (like shade tolerant/intolerant) to create a polygon grouping 
+ggplot() + 
+  geom_text(data=speciesscores,aes(x=NMDS1,y=NMDS2,label=species),size=5,vjust=0, colour="blue") +  
+  #geom_point(data=sitescores,aes(x=NMDS1,y=NMDS2),size=1) + # add the point markers
+  geom_text(data=sitescores,aes(x=NMDS1,y=NMDS2,label=site),size=3,vjust=0, color="red") +  
+  coord_equal() +
+  theme_bw()+
+  theme(axis.text.x = element_blank(),  
+        axis.text.y = element_blank(), 
+        axis.ticks = element_blank(),  
+        axis.title.x = element_text(size=18), 
+        axis.title.y = element_text(size=18), 
+        panel.background = element_blank(), 
+        panel.grid.major = element_blank(),  
+        panel.grid.minor = element_blank(),  
+        plot.background = element_blank())
+
 
 
 ## Constrained Ordination###
-final.over$sapID<-paste0(final.over$SITEid,"-",final.over$PLOTid)
-#change from integer to numeric
-final.over$flowdir<-as.numeric(final.over$flowdir)
-final.over$Parent<-as.numeric(final.over$Parent)
 #join together sapling and environmental data to make sure the number of observations match
-bark<-left_join(final.over, sapwide)
+final.over<-na.omit(final.over)
+bark<-left_join(sapwide, final.over)
 #bark[is.na(bark)] <- 0
 names<-bark$sapID #create list of sapID to set the rownames with 
 #separate the datasets back out
-sapwide<-bark[,c(67:78)]
-env<-bark[,4:67]
+sapwide<-bark[,c(1:12)]
+env<-bark[,21:74]
+names(sapwide)
+names(env)
 #add rownames
-rownames(sapwide)<-names
-rownames(env)<-names
+#rownames(sapwide)<-names
+#rownames(env)<-names
 #remove sapID variable
 sapwide<-sapwide[,2:12]
 names(sapwide)
@@ -205,8 +243,10 @@ summary(sap.rda)
 ordiplot(sap.rda, scaling = 2, type = "text")
 RsquareAdj(sap.rda)$adj.r.squared
 
+#env<-na.omit(env)
+#there is a group of NA values. Need to figure out how to join the datasets together to maintain the corner but not the NAs
 #variable selection
-step.forward <- ordiR2step(rda(sapwide ~ 1, data=env, na.action = na.exclude), scope=formula(sap.rda), R2scope = F, direction="forward", pstep=1000)
+step.forward <- ordiR2step(rda(sapwide ~ 1, data=env, na.action = na.exclude), scope=formula(sap.rda,na.action=na.exclude), R2scope = F, direction="forward", pstep=1000,na.action=na.exclude)
 anova(sap.rda, by="terms", step=1000) 
 anova(sap.rda, step=1000)
 

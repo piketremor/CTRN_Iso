@@ -22,6 +22,8 @@ library(vegan)
 library(psych)
 library(reshape)
 library(janitor)
+library(MEForLab)
+library(gridExtra)
 
 setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
 trees <- read.csv("Trees2023.csv")
@@ -36,6 +38,10 @@ overstory[overstory == "WB"]<-"PB"
 overstory[overstory == "MA"]<-"OH"
 overstory$EXP<-5
 overstory<-filter(overstory, YEAR==2018)
+overstory<-filter(overstory, SPP!="OH")
+overstory<-filter(overstory, SPP!="UNK")
+overstory<-filter(overstory, SPP!="OT")
+unique(overstory$SPP)
 overstory$BA<-(overstory$DBH^2)*0.005454
 overstory<-overstory%>%
   mutate(BA_TPA = BA * EXP)
@@ -58,13 +64,42 @@ molten <- melt(as.data.frame(branch),id=c("sapID","iv","SPP"))
 sapwide <- dcast(molten,sapID~SPP,value.var = "iv",mean)
 sapwide[is.na(sapwide)] <- 0
 head(sapwide)
-rowSums(sapwide[2:20])
-sapordi<-metaMDS(sapwide[,2:20], distance = "bray")
+names<-sapwide$sapID
+rownames(sapwide)<-names
+rowSums(sapwide[2:17])
+sapordi<-metaMDS(sapwide[,2:17], distance = "bray")
 stressplot(sapordi)
 plot(sapordi)
 plot(sapordi,type="n")
 points(sapordi,display="sites",cex=2,pch=21,col="red", bg="yellow")
 text(sapordi,display="spec",cex=1.5,col="blue")
+sapordi
+summary(sapordi)
+sapordi$stress
+speciesscores<-as.data.frame(scores(sapordi)$species)
+speciesscores$species<-rownames(speciesscores)
+head(speciesscores)
+sitescores<-as.data.frame(scores(sapordi)$sites)
+sitescores$site<-rownames(sitescores)
+head(sitescores)
+
+#could add in a grouping variable (like shade tolerant/intolerant) to create a polygon grouping 
+ggplot() + 
+  geom_text(data=speciesscores,aes(x=NMDS1,y=NMDS2,label=species),size=5,vjust=0, colour="blue") +  
+  #geom_point(data=sitescores,aes(x=NMDS1,y=NMDS2),size=1) + # add the point markers
+  geom_text(data=sitescores,aes(x=NMDS1,y=NMDS2,label=site),size=3,vjust=0, color="red") +  
+  coord_equal() +
+  theme_bw()+
+  theme(axis.text.x = element_blank(),  
+        axis.text.y = element_blank(), 
+        axis.ticks = element_blank(),  
+        axis.title.x = element_text(size=18), 
+        axis.title.y = element_text(size=18), 
+        panel.background = element_blank(), 
+        panel.grid.major = element_blank(),  
+        panel.grid.minor = element_blank(),  
+        plot.background = element_blank())
+
 ################RDA (add in environmental constraints)#########################
 trees <- read.csv("Trees2023.csv")
 locs <- read.csv("Tree_locations_species.csv")
@@ -141,31 +176,245 @@ actual.rem <- read.csv("trt_list.csv")
 act <- actual.rem[c(1,2,6)]
 final.over <- left_join(cleaned.over,act)
 final.over$wdi.time <- final.over$wd.time-final.over$SWC2
-
-
+final.over<-select(final.over, -c(SPP,Lithic,Northing_Y, Easting_X,bapa, tpa, qmd, RD, CCF, Shannon, over.Hill, ht40, prop.ws.avg,prop.bs.avg,prop.rs.avg,prop.hw.avg,prop.ab.avg,prop.eh.avg,prop.bf.avg,Redox,Parent,Min_depth,WD2000,WD2020))
+final.over$THIN_METH<-as.factor(final.over$THIN_METH)
+final.over$actual.removed[is.na(final.over$actual.removed)]<-0
+names(final.over)
 final.over$sapID<-paste0(final.over$SITEid,"-",final.over$PLOTid)
 #change from integer to numeric
 final.over$flowdir<-as.numeric(final.over$flowdir)
-final.over$Parent<-as.numeric(final.over$Parent)
+names(final.over)
+final.over<-na.omit(final.over)
 #join together sapling and environmental data to make sure the number of observations match
 bark<-left_join(final.over, sapwide)
 names<-bark$sapID #create list of sapID to set the rownames with 
 #separate the datasets back out
-sapwide<-bark[,c(67:86)]
-env<-bark[,4:67]
+sapwide<-bark[,c(43:59)]
+names(sapwide)
+env<-bark[,4:43]
+names(env)
 #add rownames
 sapwide<-as.data.frame(sapwide)
 env<-as.data.frame(env)
 rownames(sapwide)<-names
 rownames(env)<-names
 #remove sapID variable
-sapwide<-sapwide[,2:20]
+sapwide<-sapwide[,2:17]
 names(sapwide)
 names(env)
 head(env)
 head(sapwide)
-#sapwide[is.na(sapwide)] <- 0
+env<-select(env, -sapID)
+names(env)
+
+
 head(sapwide)
-sap.rda <- rda(sapwide ~ tmean+dew+actual.removed+wd.time, data=env, na.action = na.exclude)
-summary(sap.rda)
-ordiplot(sap.rda, scaling = 2, type = "text")
+#sap.rda <- rda(sapwide ~ tmean+dew+actual.removed+wd.time, data=env, na.action = na.exclude)
+sap.rdaall<-rda(sapwide~.,data=env,na.action="na.omit")
+summary(sap.rdaall)
+summary(sap.rdaall)
+ordiplot(sap.rdaall, scaling = 2, type = "text")
+step.forward <- ordiR2step(rda(sapwide ~ 1, data=env), scope=formula(sap.rdaall), R2scope = F, direction="forward", pstep=1000)
+anova(sap.rdaall, by="terms", step=1000) 
+anova(sap.rdaall, step=1000)
+
+
+names(env)
+
+
+env<-select(env, c(PCT, dew, ph, SWC2, wd.time,nit,WHC,dep,ppt,THIN_METH))
+sapordi<-metaMDS(sapwide[,1:16], distance = "bray")
+en<-envfit(sapordi, env, permutations=999)
+summary(sapordi)
+sapordi
+plot(sapordi)
+stressplot(sapordi)
+
+#plotting with the ellipses grouped by thinning method
+gof<-goodness(sapordi)
+plot(en)
+trt<-env$THIN_METH
+data.scores<-as.data.frame(scores(sapordi)$species) 
+data.scores$site <-as.data.frame(scores(sapordi)$sites)
+data.scores$THIN_METH = env$THIN_METH
+ggplot(data=data.scores) + 
+  stat_ellipse(aes(x=NMDS1,y=NMDS2,colour=THIN_METH),level = 0.50) +
+  geom_point(aes(x=NMDS1,y=NMDS2,shape=THIN_METH,colour=THIN_METH),size=4) + 
+  theme_classic()
+adon.results<-adonis2(sapwide ~ trt, method="bray",perm=999)
+print(adon.results)
+dis <- vegdist(sapwide)
+
+#mulitvariate dispersion grouped by thinning method
+mod <- betadisper(dis, trt)
+mod
+
+centroids<-data.frame(grps=rownames(mod$centroids),data.frame(mod$centroids))
+vectors<-data.frame(group=mod$group,data.frame(mod$vectors))
+seg.data<-cbind(vectors[,1:3],centroids[rep(1:nrow(centroids),as.data.frame(table(vectors$group))$Freq),2:3])
+names(seg.data)<-c("group","v.PCoA1","v.PCoA2","PCoA1","PCoA2")
+grp1.hull<-seg.data[seg.data$group=="control",1:3][chull(seg.data[seg.data$group=="control",2:3]),]
+grp2.hull<-seg.data[seg.data$group=="crown",1:3][chull(seg.data[seg.data$group=="crown",2:3]),]
+grp3.hull<-seg.data[seg.data$group=="dominant",1:3][chull(seg.data[seg.data$group=="dominant",2:3]),]
+grp4.hull<-seg.data[seg.data$group=="low",1:3][chull(seg.data[seg.data$group=="low",2:3]),]
+all.hull<-rbind(grp1.hull,grp2.hull,grp3.hull,grp4.hull)
+
+panel.a<-ggplot() + 
+  geom_point(data=centroids[1,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=16) + 
+  geom_point(data=seg.data[seg.data$group %in% "control",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=16) +
+  labs(title="Control",x="",y="") +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.25,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.b<-ggplot() + 
+  geom_point(data=centroids[2,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=17) + 
+  geom_point(data=seg.data[seg.data$group %in% "crown",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=17) +
+  labs(title="Crown",x="",y="") +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.25,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.c<-ggplot() + 
+  geom_point(data=centroids[3,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=15) + 
+  geom_point(data=seg.data[seg.data$group %in% "dominant",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15) +
+  labs(title="Dominant",x="",y="") +
+  coord_cartesian(xlim = c(-0.1,0.7), ylim = c(-0.25,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.d<-ggplot() + 
+  geom_point(data=centroids[3,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=15) + 
+  geom_point(data=seg.data[seg.data$group %in% "low",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15) +
+  labs(title="Low",x="",y="") +
+  coord_cartesian(xlim = c(-0.1,0.7), ylim = c(-0.25,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.e<-ggplot() + 
+  geom_point(data=centroids[,1:3], aes(x=PCoA1,y=PCoA2,shape=grps),size=4,colour="red") + 
+  geom_point(data=seg.data, aes(x=v.PCoA1,y=v.PCoA2,shape=group),size=2) +
+  labs(title="All",x="",y="") +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.25,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+grid.arrange(panel.a,panel.b,panel.c,panel.d, panel.e, nrow=2)
+
+#add vectors and hulls
+panel.a<-ggplot() +
+  geom_polygon(data=all.hull[all.hull=="control",],aes(x=v.PCoA1,y=v.PCoA2),colour="black",alpha=0,linetype="dashed") +
+  geom_segment(data=seg.data[seg.data$group %in% "control",],aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) + 
+  geom_point(data=centroids[1,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=16) + 
+  geom_point(data=seg.data[seg.data$group %in% "control",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=16) +
+  labs(title="Control",x="",y="") +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.25,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.b<-ggplot() +
+  geom_polygon(data=all.hull[all.hull=="crown",],aes(x=v.PCoA1,y=v.PCoA2),colour="black",alpha=0,linetype="dashed") +
+  geom_segment(data=seg.data[seg.data$group %in% "crown",],aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) + 
+  geom_point(data=centroids[2,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=17) + 
+  geom_point(data=seg.data[seg.data$group %in% "crown",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=17) +
+  labs(title="Crown",x="",y="") +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.25,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.c<-ggplot() +   
+  geom_polygon(data=all.hull[all.hull=="dominant",],aes(x=v.PCoA1,y=v.PCoA2),colour="black",alpha=0,linetype="dashed") +
+  geom_segment(data=seg.data[seg.data$group %in% "dominant",],aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) +
+  geom_point(data=centroids[3,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=15) + 
+  geom_point(data=seg.data[seg.data$group %in% "dominant",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15) + 
+  labs(title="Dominant",x="",y="") +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.5,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+
+panel.d<-ggplot() +
+  geom_polygon(data=all.hull[all.hull=="low",],aes(x=v.PCoA1,y=v.PCoA2),colour="black",alpha=0,linetype="dashed") +
+  geom_segment(data=seg.data[seg.data$group %in% "low",],aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) +
+  geom_point(data=centroids[3,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=15) + 
+  geom_point(data=seg.data[seg.data$group %in% "low",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15) +
+  labs(title="Low",x="",y="") +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.25,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.e<-ggplot() + 
+  geom_polygon(data=all.hull,aes(x=v.PCoA1,y=v.PCoA2),colour="black",alpha=0,linetype="dashed") +
+  geom_segment(data=seg.data,aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) + 
+  geom_point(data=centroids[,1:3], aes(x=PCoA1,y=PCoA2,shape=grps),size=4,colour="red") + 
+  geom_point(data=seg.data, aes(x=v.PCoA1,y=v.PCoA2,shape=group),size=2) +
+  labs(title="All",x="",y="") +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.5,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+grid.arrange(panel.a,panel.b,panel.c,panel.d, panel.e, nrow=2)
+#more graphing
+data.scores = as.data.frame(scores(sapordi)$sites)
+data.scores$THIN_METH = env$THIN_METH
+
+Type<-c("Softwood", "Softwood","Softwood")
+
+en_coord_cont = as.data.frame(scores(en, "vectors")) * ordiArrowMul(en)
+en_coord_cat = as.data.frame(scores(en, "factors")) * ordiArrowMul(en)
+speciesscores<-as.data.frame(scores(sapordi)$species)
+
+gg = ggplot(data = data.scores, aes(x = NMDS1, y = NMDS2)) + 
+  geom_point(data = data.scores, aes(colour = THIN_METH), size = 3, alpha = 0.5) + 
+  scale_colour_manual(values = c("orange", "steelblue", "lightblue2", "gold1"))  + 
+  geom_segment(aes(x = 0, y = 0, xend = NMDS1, yend = NMDS2), 
+               data = en_coord_cont, size =1, alpha = 0.5, colour = "grey30") +
+  geom_point(data = en_coord_cat, aes(x = NMDS1, y = NMDS2), 
+             shape = "diamond", size = 4, alpha = 0.6, colour = "navy") +
+  geom_text(data = en_coord_cat, aes(x = NMDS1, y = NMDS2+0.04), 
+            label = row.names(en_coord_cat), colour = "navy", fontface = "bold") + 
+  geom_text(data = en_coord_cont, aes(x = NMDS1, y = NMDS2), colour = "grey30", 
+            fontface = "bold", label = row.names(en_coord_cont)) + 
+  geom_text(data=speciesscores,aes(x=NMDS1,y=NMDS2, label=row.names(speciesscores)),size=5,vjust=0, colour="navy")+
+  theme(axis.title = element_text(size = 10, face = "bold", colour = "grey30"), 
+        panel.background = element_blank(), panel.border = element_rect(fill = NA, colour = "grey30"), 
+        axis.ticks = element_blank(), axis.text = element_blank(), legend.key = element_blank(), 
+        legend.title = element_text(size = 10, face = "bold", colour = "grey30"), 
+        legend.text = element_text(size = 9, colour = "grey30")) + 
+  labs(colour = "Thinning Method")
+
+gg
+
+
+
+#graphing grouped by softwood or hardwood
+
+grp<-c("Softwood", "Softwood","Softwood", "Hardwood", "Hardwood", "Hardwood","Hardwood","Hardwood","Softwood","Softwood","Hardwood","Hardwood","Softwood","Softwood","Softwood","Hardwood")
+speciesscores$grp<-grp
+speciesscores<-na.omit(speciesscores)
+
+grp.a <- speciesscores[speciesscores$grp == "Softwood", ][chull(speciesscores[speciesscores$grp == 
+                                                                   "Softwood", c("NMDS1", "NMDS2")]), ]  # hull values for grp A
+grp.b <- speciesscores[speciesscores$grp == "Hardwood", ][chull(speciesscores[speciesscores$grp == 
+                                                                   "Hardwood", c("NMDS1", "NMDS2")]), ]  # hull values for grp B
+
+hull.data <- rbind(grp.a, grp.b)  #combine grp.a and grp.b
+hull.data
+
+ggplot() + 
+  geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS2,fill=grp,group=grp),alpha=0.30) + # add the convex hulls
+  geom_text(data=speciesscores,aes(x=NMDS1,y=NMDS2,label=rownames(speciesscores)),alpha=1.5) +  # add the species labels
+  #geom_point(data=data.scores,aes(x=NMDS1,y=NMDS2,shape=grp,colour=grp),size=4) + # add the point markers
+  #scale_colour_manual(values=c("Softwood" = "blue", "Hardwood" = "red")) +
+  coord_equal() +
+  theme_bw() + 
+  labs(fill="Type")+ 
+  theme(axis.text.x = element_blank(),  # remove x-axis text
+        axis.text.y = element_blank(), # remove y-axis text
+        axis.ticks = element_blank(),  # remove axis ticks
+        axis.title.x = element_text(size=18), # remove x-axis labels
+        axis.title.y = element_text(size=18), # remove y-axis labels
+        panel.background = element_blank(), 
+        panel.grid.major = element_blank(),  #remove major-grid labels
+        panel.grid.minor = element_blank(),  #remove minor-grid labels
+        plot.background = element_blank())
