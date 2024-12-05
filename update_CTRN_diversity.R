@@ -204,3 +204,9 @@ summary(model10)
 check_collinearity(model10)
 performance(model10)
 plot(model10)
+
+
+anova(model9,model10)
+
+# model 9 has lower AIC and is preferred through parsimony and better R2 values, RMSE is the same. 
+performance(model9)
