@@ -141,11 +141,42 @@ head(forest)
 ##
 names(forest)
 require(leaps)
+
+forest$shann.dummy <- ifelse(forest,sap.Shannon>0,1)
+
+
+run.df <- filter(forest,sap.Shannon>0)
+unique(zero.df$sap.Shannon)
 models.sap <- regsubsets(sap.Shannon~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
                           vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+
                           wd.time+wdi.time+mean.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+THIN_METH+
                           tst+actual.removed+bapa+tpa+qmd+RD+CCF+Shannon+over.Hill+ht40+prop.ws.avg+prop.bs.avg+
-                          prop.rs.avg+prop.hw.avg,really.big = TRUE,data = forest,method="exhaustive")
+                          prop.rs.avg+prop.hw.avg,really.big = TRUE,data = run.df,method="exhaustive")
+
+
+# for the continuous data, it looks like McNab, SWI, ex.ca, ph, Thin meth, tst, qmd, over.Hill, prop.hw.avg
+
+# Vsurf for the binary outcome
+require(VSURF)
+require(randomForest)
+
+forest$sap.dum <- ifelse(forest$sap.Shannon>0,1,0)
+forest$sap.dum[is.na(forest$sap.dum)] <- 999
+bin.df <- dplyr::filter(forest,sap.dum<998)
+
+resp <- as.factor(bin.df$sap.dum)
+obs <- as.data.frame(bin.df[c(6:12,14:21,24:29,31:45,53:60,64,67)])
+obs <- na.roughfix(obs)
+
+
+
+m <- VSURF(obs,resp)
+
+m$varselect.pred
+names(obs)
+
+#ht40 and tmean for the zero inflation. 
+
 summary(models.sap)
 model1<-lm(sap.Shannon~roughness+Winds10+wd.time+wdi.time+ph+tst+actual.removed+tpa+CCF,data=forest)
 summary(model1)
@@ -153,24 +184,72 @@ check_collinearity(model1)
 plot(model1)
 
 
-hist(forest$sap.Shannon)
-
 forest$bapa[is.na(forest$bapa)]<-0
 forest<-filter(forest, bapa>0)
 forest$actual.removed[is.na(forest$actual.removed)]<-0
 
 sap.mod <- glmmTMB(sap.Shannon~(1|SITEid/PLOTid/CORNERid)+THIN_METH:wdi.time,
                    data=forest,
-                   ziformula=~wdi.time*actual.removed+THIN_METH+CCF+tst,
+                   ziformula=~wdi.time+THIN_METH+CCF+tst+tmean+ht40,
                    family=ziGamma(link="log"),
                    na.action="na.omit") #best model? need to include autocorrelation
 
-resid<-residuals(sap.mod)
+require(DHARMa)
+res = simulateResiduals(sap.mod)
+plot(res)
+res = recalculateResiduals(res, group = forest$YEAR)
+testTemporalAutocorrelation(res, time = unique(forest$YEAR))
 
 summary(sap.mod)
+
+# don't need to adjust for temporal autocorrelation according to DW test, but the variables could be beefed up
+# for the continuous data, it looks like McNab, SWI, ex.ca, ph, Thin meth, tst, qmd, over.Hill, prop.hw.avg
+
+sap.mod2 <- glmmTMB(sap.Shannon~(1|SITEid/PLOTid/CORNERid)+THIN_METH:wdi.time+over.Hill+prop.hw.avg,
+                   data=forest,
+                   ziformula=~wdi.time+THIN_METH+CCF+tst+tmean+ht40,
+                   family=ziGamma(link="log"),
+                   na.action="na.omit") #best model? need to include autocorrelation
+summary(sap.mod2)
+plot(sap.mod2)
+performance(sap.mod2)
+
+MuMIn::r.squaredGLMM(sap.mod2)
+
+mydf2 <- ggpredict(sap.mod2,terms=c("tst","THIN_METH","CCF"),type="zi.prob",allow.new.levels=TRUE)
+
+
+#png("~/Desktop/SMC_Sinuosity_Model_Output.png",units='in',height=5.5,width=14,res=1000)
+#theme_set(theme_bw(16))
+
+library(ggplot2)
+ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
+  geom_line(aes(linetype=group,color=group),size=1)+
+  labs(x="Time since treatment (years)",y="Probabilty of no diversity (%)")+
+  #ylim(0,55)+
+  #xlim(4,6)+
+  facet_wrap(~facet)+
+  theme_bw(12) +
+  #theme(legend.position="none")+
+  scale_color_manual(values=c('gray0','gray50','gray25',"gray75"))
+  #scale_fill_manual(values=c('gray0','gray70','gray40'), name="fill")
+
+performance(sap.mod)
+performance(sap.mod2)
+
+check_collinearity(sap.mod2)
+
+anova(sap.mod,sap.mod2)
+
+plot(residuals(sap.mod2))
+plot(acf(sap.mod))
+sap.mod
+resid<-residuals(sap.mod)
+summary(sap.mod2)
+
 plot(resid)
 
 
-multicollinearity(sap.mod)
 
-+THIN_METH:wdi.time
+
+
