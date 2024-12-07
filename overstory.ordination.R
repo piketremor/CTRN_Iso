@@ -26,6 +26,8 @@ library(MEForLab)
 library(gridExtra)
 
 setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
+setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
+
 trees <- read.csv("Trees2023.csv")
 locs <- read.csv("Tree_locations_species.csv")
 tree_species <- locs[c(1:3,6)]
@@ -61,27 +63,32 @@ branch <- branch%>%
   mutate(iv = ((prop_tpa + prop_ba)/2))
 branch$sapID<-paste0(branch$SITEid,"-",branch$PLOTid)
 molten <- melt(as.data.frame(branch),id=c("sapID","iv","SPP"))
-sapwide <- dcast(molten,sapID~SPP,value.var = "iv",mean)
-sapwide[is.na(sapwide)] <- 0
-head(sapwide)
-names<-sapwide$sapID
-rownames(sapwide)<-names
-rowSums(sapwide[2:17])
-sapordi<-metaMDS(sapwide[,2:17], distance = "bray")
-stressplot(sapordi)
-plot(sapordi)
-plot(sapordi,type="n")
-points(sapordi,display="sites",cex=2,pch=21,col="red", bg="yellow")
-text(sapordi,display="spec",cex=1.5,col="blue")
-sapordi
-summary(sapordi)
-sapordi$stress
-speciesscores<-as.data.frame(scores(sapordi)$species)
-speciesscores$species<-rownames(speciesscores)
-head(speciesscores)
-sitescores<-as.data.frame(scores(sapordi)$sites)
-sitescores$site<-rownames(sitescores)
-head(sitescores)
+overwide <- dcast(molten,sapID~SPP,value.var = "iv",mean)
+overwide[is.na(overwide)] <- 0
+head(overwide)
+names<-overwide$sapID
+rownames(overwide)<-names
+rowSums(overwide[2:17])
+set.seed(123)
+over.ord<-metaMDS(overwide[,2:17], distance = "bray")
+stressplot(over.ord)
+over.ord
+plot(over.ord)
+
+plot(over.ord)
+plot(over.ord,type="n")
+points(over.ord,display="sites",cex=2,pch=21,col="red", bg="yellow")
+text(over.ord,display="spec",cex=1.5,col="blue")
+over.ord
+summary(over.ord)
+over.ord$stress
+#over.ord<-as.data.frame(scores(over.ord$species))
+#species.scores <-
+#speciesscores$species<-rownames(speciesscores)
+#head(speciesscores)
+#sitescores<-as.data.frame(scores(over.ord)$sites)
+#sitescores$site<-rownames(sitescores)
+#head(sitescores)
 
 #could add in a grouping variable (like shade tolerant/intolerant) to create a polygon grouping 
 ggplot() + 
@@ -184,33 +191,80 @@ final.over$sapID<-paste0(final.over$SITEid,"-",final.over$PLOTid)
 #change from integer to numeric
 final.over$flowdir<-as.numeric(final.over$flowdir)
 names(final.over)
-final.over<-na.omit(final.over)
+#final.over<-na.omit(final.over)
 #join together sapling and environmental data to make sure the number of observations match
-bark<-left_join(final.over, sapwide)
+bark<-left_join(final.over, overwide)
 names<-bark$sapID #create list of sapID to set the rownames with 
 #separate the datasets back out
-sapwide<-bark[,c(43:59)]
-names(sapwide)
+overwide<-bark[,c(43:59)]
+names(overwide)
 env<-bark[,4:43]
 names(env)
 #add rownames
-sapwide<-as.data.frame(sapwide)
+overwide<-as.data.frame(overwide)
 env<-as.data.frame(env)
-rownames(sapwide)<-names
+rownames(overwide)<-names
 rownames(env)<-names
 #remove sapID variable
-sapwide<-sapwide[,2:17]
-names(sapwide)
+overwide<-overwide[,2:17]
+names(overwide)
 names(env)
 head(env)
-head(sapwide)
+head(overwide)
 env<-select(env, -sapID)
 names(env)
 
+#write.csv(final.over,"CTRN_EnvMatrix.csv")
+
+
+# Premer pickup here. 
+head(overwide)
+#sap.rda <- rda(sapwide ~ tmean+dew+actual.removed+wd.time, data=env, na.action = na.exclude)
+vare.dist <- vegdist(overwide)
+vare.ord<-metaMDS(vare.dist, distance = "bray",
+                  trymax=250,autotransform =TRUE,k=3)
+over.rdaall<-rda(overwide~.,data=env,na.action="na.omit")
+env[is.na(env)] <- 0
+ef <- envfit(overwide, env,na.action="na.pass")
+mod0 <- rda(overwide~1,env)
+mod1 <- rda(overwide~.,env)
+bstick(mod0)
+screeplot(mod0,bstick=TRUE,type="lines")
+summary(eigenvals(mod0))
+
+set.seed(123)
+mod <- ordistep(mod0, scope=formula(mod1),direction="both")
+anova(mod,type="t")
+anova(mod, by = "margin")
+vif.cca(mod)
+re.env <- env[c(11,27,36,24,29,4,26,38)]
+ordisurf(vare.ord ~ actual.removed, env, bubble = 1)
+fit <- ordisurf(vare.ord~wdi.time,env,famkly=quasipoisson)
+calibrate(fit)
+
+#species correlations with axes and associated p values
+ce <- cor(overwide,method="pearson",scores(vare.ord,dis="si"))
+try.x <- (ce*sqrt(96-2)/
+            sqrt(1-ce^2))
+try.x
+dt(try.x,df=95)
+
+#cannot run categorical variables with correlations
+cx <- cor(re.env,method="pearson",scores(vare.ord,dis="si"))
+try <- (cx*sqrt(96-2)/
+          sqrt(1-cx^2))
+try
+dt(try,df=95)
+
+
+
+
+## Premer end. 12/6/2024
 
 head(sapwide)
 #sap.rda <- rda(sapwide ~ tmean+dew+actual.removed+wd.time, data=env, na.action = na.exclude)
 sap.rdaall<-rda(sapwide~.,data=env,na.action="na.omit")
+
 summary(sap.rdaall)
 summary(sap.rdaall)
 ordiplot(sap.rdaall, scaling = 2, type = "text")
@@ -244,6 +298,25 @@ ggplot(data=data.scores) +
 adon.results<-adonis2(sapwide ~ trt, method="bray",perm=999)
 print(adon.results)
 dis <- vegdist(sapwide)
+
+slice <- left_join(over.ID,slice,by="uid")
+slice$tst <- as.numeric(slice$tst)
+slice$age <- as.numeric(slice$age)
+slice.ff <- slice[order(slice$uid),]
+ff.all <- slice.ff[,c(2:17)]
+ff.env <- slice.ff[,c(2:15,18,19)]
+
+
+
+
+
+
+
+
+
+
+
+
 
 #mulitvariate dispersion grouped by thinning method
 mod <- betadisper(dis, trt)
