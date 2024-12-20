@@ -16,8 +16,11 @@ library(vegan)
 library(psych)
 library(reshape)
 library(janitor)
+require(MEForLab)
 
 setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
+setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
+
 saplings <- read.csv("Saplings.csv")[,2:9]
 
 saplings <- filter(saplings, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB") 
@@ -25,7 +28,7 @@ saplings[saplings == "SpecAld"]<-"SA"
 saplings[saplings == "HM"]<-"EH"
 saplings[saplings == "CH"]<-"BC"
 
-
+detach(package:plyr)
 trees <- read.csv("Trees2023.csv")
 locs <- read.csv("Tree_locations_species.csv")
 tree_species <- locs[c(1:3,6)]
@@ -46,6 +49,8 @@ ht.40 <- ov%>%
   group_by(SITEid,PLOTid,YEAR,SPP)%>%
   top_n(8,DBH)%>%
   summarize(ht40 = mean(ht.fit))
+require(dplyr)
+#detach(package:plyr)
 overstory.summary <- ov%>%
   group_by(SITEid,PLOTid,YEAR)%>%
   summarize(bapa = sum(ba*ef),tpa = sum(ef),qmd = qmd(bapa,tpa),RD = bapa/sqrt(qmd),
@@ -53,13 +58,15 @@ overstory.summary <- ov%>%
 sp.summary <- ov%>%
   group_by(SITEid,PLOTid,YEAR,SPP)%>%
   summarize(sp.bapa = sum(ba*ef),sp.tpa = sum(ef))
+
 shannon <- overstory.summary%>%
   left_join(.,sp.summary)%>%
   mutate(iv = ((sp.bapa/bapa+sp.tpa/tpa)/2),Shannons = iv*log(iv))%>%
   group_by(SITEid,PLOTid,YEAR)%>%
   summarize(Shannon = sum(Shannons)*-1,over.Hill = exp(Shannon))
-over.standlist <- left_join(overstory.summary,shannon)%>%
-  left_join(.,ht.40)
+
+over.standlist <- left_join(overstory.summary,shannon)
+over.standlist <- left_join(over.standlist,ht.40)
 # need to get the % of spruce, fir, and HW
 spec.groups <- overstory.summary%>%
   left_join(.,sp.summary)%>%
@@ -123,6 +130,11 @@ branch<-filter(saplings18, SPP =="PB"|SPP == "OT"|SPP=="NC"|SPP=="RM"|SPP=="RS"|
 
 unique(branch$SPP)
 #recalculate iv values
+
+# 12/19/2024
+# NEED TO TURN NA'S IN THE 1.2, 1, AND 2 INCH COUNTS TO ZEROS, OTHERWISE SAP.BA RETURNS AN NA. 
+# WILL WORK ON TOMORROW (12/20)
+
 branch <- branch%>%
   mutate(ba.half = (0.5^2*0.005454)*X1.2.inch)%>%
   mutate(ba.one = (1.0^2*0.005454)*X1.inch)%>%
@@ -178,7 +190,7 @@ names<-sapwide$sapID
 rownames(sapwide)<-names
 
 #NMDS
-sapordi<-metaMDS(sapwide[,2:12], distance = "bray")
+sapordi<-metaMDS(sapwide[,2:12], distance = "bray",k=3)
 stressplot(sapordi)
 sapordi
 plot(sapordi)
@@ -213,28 +225,37 @@ ggplot() +
 
 
 
+# Premer pickup here. 
+
 ## Constrained Ordination###
 #join together sapling and environmental data to make sure the number of observations match
-final.over<-na.omit(final.over)
+final.over
+
+
+#final.over<-na.omit(final.over)
 bark<-left_join(sapwide, final.over)
 #bark[is.na(bark)] <- 0
 names<-bark$sapID #create list of sapID to set the rownames with 
 #separate the datasets back out
-sapwide<-bark[,c(1:12)]
-env<-bark[,21:74]
+sapwide<-bark[,c(2:12)]
+env<-bark[c(21:57,59:74)]
 names(sapwide)
 names(env)
 #add rownames
 #rownames(sapwide)<-names
 #rownames(env)<-names
 #remove sapID variable
-sapwide<-sapwide[,2:12]
+#sapwide<-sapwide[,2:12]
 names(sapwide)
 names(env)
 head(env)
 head(sapwide)
+
+
 sapwide[is.na(sapwide)] <- 0
 head(sapwide)
+
+
 
 
 #rda with all environmental variables (0.39)
@@ -250,6 +271,13 @@ step.forward <- ordiR2step(rda(sapwide ~ 1, data=env, na.action = na.exclude), s
 anova(sap.rda, by="terms", step=1000) 
 anova(sap.rda, step=1000)
 
+mod0 <- rda(sapwide~1,env)
+#mod1 <- rda(sapwide~.,env)
+
+
+step.through <- ordiR2step(rda(sapwide ~ 1, data=env, na.action = na.exclude), scope=formula(sap.rda,na.action=na.exclude), R2scope = F, direction="both", pstep=1000,na.action=na.exclude)
+
+mod <- ordistep(mod0, scope=formula(sap.rda,na.action=na.exclude),direction="both",na.action=na.exclude)
 ##Test individual environmental constraints
 
 ###water deficit
