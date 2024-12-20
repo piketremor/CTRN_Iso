@@ -111,13 +111,18 @@ final.over<-select(final.over, -c(SPP,Lithic,Northing_Y, Easting_X,Redox,Parent,
 final.over$THIN_METH<-as.factor(final.over$THIN_METH)
 final.over$actual.removed[is.na(final.over$actual.removed)]<-0
 names(final.over)
-final.over<-left_join(saplings,final.over)
+
+
+
+
+#final.over<-left_join(saplings,final.over)
 names(final.over)
-final.over$sapID<-paste0(final.over$SITEid,"-",final.over$PLOTid,"-",final.over$CORNERid)
+final.over$sapID<-paste0(final.over$SITEid,"-",final.over$PLOTid)
 #change from integer to numeric
 final.over$flowdir<-as.numeric(final.over$flowdir)
 names(final.over)
-final.over<-na.omit(final.over)
+head(final.over)
+#final.over<-na.omit(final.over)
 
 ##2018 Ordination and Data Cleaning
 
@@ -125,62 +130,81 @@ final.over<-na.omit(final.over)
 saplings18<-filter(saplings, YEAR == 2018)
 unique(saplings18$SPP)
 
+saplings$uid <- as.data.frame(paste0(saplings$SITEid,".",saplings$PLOTid,".",saplings$CORNERid))
+template <- data.frame(uid=unique(saplings$uid))
+names(template)
+template$uid <- (template$paste0.saplings.SITEid.......saplings.PLOTid.......saplings.CORNERid.)
+names(template)
+templ <- data.frame(uid=template$uid)
+saplings18$uid <- as.factor(paste0(saplings18$SITEid,".",saplings18$PLOTid,".",saplings18$CORNERid))
+saplings.df <- left_join(templ,saplings18)
+
+
+
 #filter for species >5%
-branch<-filter(saplings18, SPP =="PB"|SPP == "OT"|SPP=="NC"|SPP=="RM"|SPP=="RS"|SPP=="WP"|SPP=="BF"|SPP=="YB"|SPP=="EH"|SPP=="QA"|SPP=="BC")
+branch <-filter(saplings.df, SPP =="PB"|SPP == "OT"|SPP=="NC"|SPP=="RM"|SPP=="RS"|SPP=="WP"|SPP=="BF"|SPP=="YB"|SPP=="EH"|SPP=="QA"|SPP=="BC")
 
 unique(branch$SPP)
 #recalculate iv values
+
+# because there are some corners with 0s, we cannot use the corner id, so we will have to combine regen plots
+
+
 
 # 12/19/2024
 # NEED TO TURN NA'S IN THE 1.2, 1, AND 2 INCH COUNTS TO ZEROS, OTHERWISE SAP.BA RETURNS AN NA. 
 # WILL WORK ON TOMORROW (12/20)
 
-branch <- branch%>%
-  mutate(ba.half = (0.5^2*0.005454)*X1.2.inch)%>%
-  mutate(ba.one = (1.0^2*0.005454)*X1.inch)%>%
-  mutate(ba.two = (2.0^2)*0.005454*X2.inch)%>%
-  mutate(sap.ba = (ba.half+ba.one+ba.two)*250)
-
-branch$SAP_EXP <- 250
-
-branch<-replace(branch, is.na(branch), 0)   
+head(branch)
+branch$X1.2.inch[is.na(branch$X1.2.inch)] <- 0
+branch$X1.inch[is.na(branch$X1.inch)] <- 0
+branch$X2.inch[is.na(branch$X2.inch)] <- 0
 
 
-branch<-branch%>%
-  mutate(total_diameter = ba.half + ba.one + ba.two)
+brancher <- branch%>%
+  mutate(SAP_EXP = 62.5,
+         bapa.half = ((0.5^2*0.005454)*X1.2.inch)*SAP_EXP,
+         bapa.one = (1.0^2*0.005454)*X1.inch*SAP_EXP,
+         bapa.two = (2.0^2)*0.005454*X2.inch*SAP_EXP)
 
-branch<-branch%>%
-  mutate(BA = ((total_diameter^2)*0.005454))
+brancher$sap.bapa <- brancher$bapa.half+brancher$bapa.one+brancher$bapa.two
+head(brancher)
+#branch$SAP_EXP <- 250
 
-branch<-branch%>%
-  mutate(SAP_BA_TPA = BA * SAP_EXP)
+#branch<-replace(branch, is.na(branch), 0)   
 
-plot_summary_sap <- branch%>%
-  group_by(SITEid, PLOTid, CORNERid,YEAR)%>%
+
+#branch<-branch%>%. ? 
+#  mutate(total_diameter = ba.half + ba.one + ba.two)
+
+#branch<-branch%>%. ? 
+#  mutate(BA = ((total_diameter^2)*0.005454))
+
+#branch<-branch%>%
+#  mutate(SAP_BA_TPA = BA * SAP_EXP)
+
+plot_summary_sap <- brancher%>%
+  group_by(SITEid, PLOTid,YEAR)%>%
   summarise(SAP_TPA_total = sum(SAP_EXP),
-            SAPBA_total = sum(SAP_BA_TPA))
+            SAPBA_total = sum(sap.bapa))
 
-branch <- branch%>%
-  group_by(SITEid, PLOTid, CORNERid,YEAR, SPP)%>%
+branched <- brancher%>%
+  group_by(SITEid, PLOTid,YEAR, SPP)%>%
   summarise(SAP_TPA = sum(SAP_EXP),
-            SAPBA = sum(SAP_BA_TPA))
+            SAPBA = sum(sap.bapa))
 
-branch<-left_join(branch, plot_summary_sap)
-
-
-branch <- branch%>%
+branches <- branched%>%
+  left_join(.,plot_summary_sap)%>%
   mutate(prop_tpa = (SAP_TPA/SAP_TPA_total),
-         prop_ba = (SAPBA/SAPBA_total))
-
-branch <- branch%>%
-  mutate(iv = ((prop_tpa + prop_ba)/2))
+         prop_ba = (SAPBA/SAPBA_total),
+         iv = ((prop_tpa + prop_ba)/2))
 
 
 #create site-plot identifier
-branch$sapID<-paste0(branch$SITEid,"-",branch$PLOTid,"-",branch$CORNERid)
+branches$sapID<-paste0(branches$SITEid,"-",branches$PLOTid)
 
 #get data in long format
-molten <- melt(as.data.frame(branch),id=c("sapID","iv","SPP"))
+molten <- melt(as.data.frame(branches),id=c("sapID","iv","SPP"))
 sapwide <- dcast(molten,sapID~SPP,value.var = "iv",mean)
 sapwide[is.na(sapwide)] <- 0
 head(sapwide)
@@ -223,85 +247,89 @@ ggplot() +
         panel.grid.minor = element_blank(),  
         plot.background = element_blank())
 
-
-
-# Premer pickup here. 
+########################
 
 ## Constrained Ordination###
 #join together sapling and environmental data to make sure the number of observations match
-final.over
-
+final.over <- filter(final.over,YEAR=="2018")
 
 #final.over<-na.omit(final.over)
 bark<-left_join(sapwide, final.over)
 #bark[is.na(bark)] <- 0
 names<-bark$sapID #create list of sapID to set the rownames with 
+
+barker <- na.omit(bark)
 #separate the datasets back out
 sapwide<-bark[,c(2:12)]
-env<-bark[c(21:57,59:74)]
-names(sapwide)
-names(env)
+env<-bark[c(16:20,21:52,54:61,65:69)]
+env$wsi.time <- env$wdi.time*-1
+env[is.na(env)] <- 0
 #add rownames
 #rownames(sapwide)<-names
 #rownames(env)<-names
 #remove sapID variable
 #sapwide<-sapwide[,2:12]
-names(sapwide)
-names(env)
-head(env)
-head(sapwide)
-
-
-sapwide[is.na(sapwide)] <- 0
-head(sapwide)
-
-
-
-
+#sapwide[is.na(sapwide)] <- 0
 #rda with all environmental variables (0.39)
 sap.rda <- rda(sapwide ~ ., data=env, na.action = na.exclude) 
 summary(sap.rda)
 ordiplot(sap.rda, scaling = 2, type = "text")
 RsquareAdj(sap.rda)$adj.r.squared
 
+mod0 <- rda(sapwide~1,env)
+mod1 <- rda(sapwide~.,env,na.action=na.exclude)
+
+mod <- ordistep(mod0, 
+                scope=formula(mod1,na.action=na.exclude),
+                direction="both",na.action=na.exclude)
+
+plot(mod,add=TRUE,type="t")
+anova(mod,type="t")
+summary(mod)
+anova(mod, by = "margin")
+vif.cca(mod)
+
 #env<-na.omit(env)
 #there is a group of NA values. Need to figure out how to join the datasets together to maintain the corner but not the NAs
 #variable selection
-step.forward <- ordiR2step(rda(sapwide ~ 1, data=env, na.action = na.exclude), scope=formula(sap.rda,na.action=na.exclude), R2scope = F, direction="forward", pstep=1000,na.action=na.exclude)
-anova(sap.rda, by="terms", step=1000) 
-anova(sap.rda, step=1000)
-
-mod0 <- rda(sapwide~1,env)
-#mod1 <- rda(sapwide~.,env)
+#step.forward <- ordiR2step(rda(sapwide ~ 1, data=env, na.action = na.exclude), scope=formula(sap.rda,na.action=na.exclude), R2scope = F, direction="both", pstep=1000,na.action=na.exclude)
+#anova(sap.rda, by="terms", step=10) 
+#anova(sap.rda, step=10)
+#vif.cca(mod)
 
 
-step.through <- ordiR2step(rda(sapwide ~ 1, data=env, na.action = na.exclude), scope=formula(sap.rda,na.action=na.exclude), R2scope = F, direction="both", pstep=1000,na.action=na.exclude)
+## Premer end. 
 
-mod <- ordistep(mod0, scope=formula(sap.rda,na.action=na.exclude),direction="both",na.action=na.exclude)
+
+
+
+
+#step.through <- ordiR2step(rda(sapwide ~ 1, data=env, na.action = na.exclude), scope=formula(sap.rda,na.action=na.exclude), R2scope = F, direction="both", pstep=1000,na.action=na.exclude)
+#mod <- ordistep(mod0, scope=formula(sap.rda,na.action=na.exclude),direction="both",na.action=na.exclude)
 ##Test individual environmental constraints
 
 ###water deficit
-rda.wd<-rda(sapwide~WD,data=env,na.action=na.exclude) #0.06
+rda.wd<-rda(sapwide~mean.WD,data=env,na.action=na.exclude) #0.06
 summary(rda.wd)
 RsquareAdj(rda.wd)$adj.r.squared
 
 #water deficit index
-rda.wdi<-rda(sapwide~WDI,data=env,na.action=na.exclude) #0.05
+rda.wdi<-rda(sapwide~wsi.time,data=env,na.action=na.exclude) #0.05
 summary(rda.wdi)
 RsquareAdj(rda.wdi)$adj.r.squared
 
 ###average water deficit ##winner
-rda.avg.wd<-rda(sapwide~ave.WD,data=env,na.action=na.exclude) #0.098
+rda.avg.wd<-rda(sapwide~mean.WD,data=env,na.action=na.exclude) #0.098
 summary(rda.avg.wd)
 RsquareAdj(rda.avg.wd)$adj.r.squared
 
 #cumulative water deficit
-rda.cumwd<-rda(sapwide~cumulative.WD,data=env,na.action=na.exclude) #0.08
+rda.cumwd<-rda(sapwide~wd.time,data=env,na.action=na.exclude) #0.08
 summary(rda.cumwd)
 RsquareAdj(rda.cumwd)$adj.r.squared
 
 #running water deficit
-rda.runwd<-rda(sapwide~run.wd,data=env,na.action=na.exclude) #0.03
+rda.runwd<-rda(sapwide~w,data=env,na.action=na.exclude) #0.03
 summary(rda.runwd)
 RsquareAdj(rda.runwd)$adj.r.squared
 
