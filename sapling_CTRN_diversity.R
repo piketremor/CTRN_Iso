@@ -249,7 +249,7 @@ summary(sap.mod2)
 
 plot(resid)
 
-
+test<-summary(sap.mod2)
 
 
 

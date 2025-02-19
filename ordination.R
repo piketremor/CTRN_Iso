@@ -16,6 +16,7 @@ library(vegan)
 library(psych)
 library(reshape)
 library(janitor)
+library(gridExtra)
 require(MEForLab)
 
 setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
@@ -27,6 +28,7 @@ saplings <- filter(saplings, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | 
 saplings[saplings == "SpecAld"]<-"SA"
 saplings[saplings == "HM"]<-"EH"
 saplings[saplings == "CH"]<-"BC"
+saplings[saplings == "NC"]<-"WC"
 
 detach(package:plyr)
 trees <- read.csv("Trees2023.csv")
@@ -112,7 +114,16 @@ final.over$THIN_METH<-as.factor(final.over$THIN_METH)
 final.over$actual.removed[is.na(final.over$actual.removed)]<-0
 names(final.over)
 
+#converting WD variables to WS variables
+final.over$wdi.time<-final.over$wdi.time * -1
+final.over$mean.WD<-final.over$mean.WD * -1
+final.over$wd.time<-final.over$wd.time * -1
 
+#renaming the WD variables accordingly 
+
+colnames(final.over)[colnames(final.over) == 'wdi.time'] <- 'wsi.time'
+colnames(final.over)[colnames(final.over) == 'wd.time'] <- 'ws.time'
+colnames(final.over)[colnames(final.over) == 'mean.WD'] <- 'mean.WS'
 
 
 #final.over<-left_join(saplings,final.over)
@@ -142,7 +153,7 @@ saplings.df <- left_join(templ,saplings18)
 
 
 #filter for species >5%
-branch <-filter(saplings.df, SPP =="PB"|SPP == "OT"|SPP=="NC"|SPP=="RM"|SPP=="RS"|SPP=="WP"|SPP=="BF"|SPP=="YB"|SPP=="EH"|SPP=="QA"|SPP=="BC")
+branch <-filter(saplings.df, SPP =="PB"|SPP == "OT"|SPP=="WC"|SPP=="RM"|SPP=="RS"|SPP=="WP"|SPP=="BF"|SPP=="YB"|SPP=="EH"|SPP=="QA"|SPP=="BC")
 
 unique(branch$SPP)
 #recalculate iv values
@@ -169,19 +180,7 @@ brancher <- branch%>%
 
 brancher$sap.bapa <- brancher$bapa.half+brancher$bapa.one+brancher$bapa.two
 head(brancher)
-#branch$SAP_EXP <- 250
 
-#branch<-replace(branch, is.na(branch), 0)   
-
-
-#branch<-branch%>%. ? 
-#  mutate(total_diameter = ba.half + ba.one + ba.two)
-
-#branch<-branch%>%. ? 
-#  mutate(BA = ((total_diameter^2)*0.005454))
-
-#branch<-branch%>%
-#  mutate(SAP_BA_TPA = BA * SAP_EXP)
 
 plot_summary_sap <- brancher%>%
   group_by(SITEid, PLOTid,YEAR)%>%
@@ -219,10 +218,15 @@ stressplot(sapordi)
 sapordi
 plot(sapordi)
 
+
+
 plot(sapordi,type="n")
 points(sapordi,display="sites",cex=2,pch=21,col="red", bg="yellow")
-text(sapordi,display="spec",cex=1.5,col="blue")
+text(sapordi,display="spec",cex=1.5,col="red")
+#womp<-select(env, c(wdi.time, Winds50,WHC,wd.time,roughness,elevation,dep,ex.k,vpdmax))
 
+#wimp<-envfit(sapwide, womp,na.rm=TRUE)
+#plot(wimp)
 speciesscores<-as.data.frame(scores(sapordi)$species)
 speciesscores$species<-rownames(speciesscores)
 head(speciesscores)
@@ -247,6 +251,20 @@ ggplot() +
         panel.grid.minor = element_blank(),  
         plot.background = element_blank())
 
+
+ce <- cor(sapwide,method="pearson",scores(sapordi,dis="si"))
+try.x <- (ce*sqrt(96-2)/
+            sqrt(1-ce^2))
+try.x
+dt(try.x,df=95)
+
+#cannot run categorical variables with correlations
+cx <- cor(re.env,method="pearson",scores(sapordi,dis="si"))
+try <- (cx*sqrt(96-2)/
+          sqrt(1-cx^2))
+try
+try.p<-dt(try,df=95)
+
 ########################
 
 ## Constrained Ordination###
@@ -261,33 +279,67 @@ names<-bark$sapID #create list of sapID to set the rownames with
 barker <- na.omit(bark)
 #separate the datasets back out
 sapwide<-bark[,c(2:12)]
-env<-bark[c(16:20,21:52,54:61,65:69)]
-env$wsi.time <- env$wdi.time*-1
+env<-bark[c(16:20,21:52,54:61,63,65:69)]
 env[is.na(env)] <- 0
-#add rownames
-#rownames(sapwide)<-names
-#rownames(env)<-names
-#remove sapID variable
-#sapwide<-sapwide[,2:12]
-#sapwide[is.na(sapwide)] <- 0
-#rda with all environmental variables (0.39)
+
+#environmental constraints
+ef <- envfit(sapwide, env,na.rm=TRUE)
+plot(ef)
 sap.rda <- rda(sapwide ~ ., data=env, na.action = na.exclude) 
 summary(sap.rda)
 ordiplot(sap.rda, scaling = 2, type = "text")
 RsquareAdj(sap.rda)$adj.r.squared
 
+
+#I can't replace NA values in THIN_METH with 0's because it's a factor, but I can't remove them because then the plots/sites
+#don't line up with the sapling matrix
 mod0 <- rda(sapwide~1,env)
 mod1 <- rda(sapwide~.,env,na.action=na.exclude)
-
+set.seed(123)
 mod <- ordistep(mod0, 
-                scope=formula(mod1,na.action=na.exclude),
-                direction="both",na.action=na.exclude)
+                scope=formula(mod1),
+                direction="both")
+
+
 
 plot(mod,add=TRUE,type="t")
 anova(mod,type="t")
 summary(mod)
 anova(mod, by = "margin")
+##significance of constraints
+anova(mod, by="term")
+two_env<-select(env, c(wdi.time, WHC, tst, ppt,Winds50,wd.time,Shannon,ht40,roughness,dew,elevation,tmin,dep,vpdmax,ex.k,tpa,THIN_METH))
 vif.cca(mod)
+mod2<-rda(sapwide~.,two_env,na.action=na.exclude)
+vif.cca(mod2)
+summary(mod2)
+ordiplot(mod2, scaling = 2, type = "text")
+ordiplot(mod2, scaling = 2, type = "none")%>%
+  points("sites", pch=16)%>%
+  text("species", col="red")%>%
+  text(what="biplot", col="blue")
+sap.anova<-anova(mod2,by="term")
+write.csv(sap.anova,"~/Desktop/anova.sapling.csv")
+#species and constraint correlations with NMDS axes
+ce <- cor(sapwide,method="pearson",scores(sapordi,dis="si"))
+try.x <- (ce*sqrt(96-2)/
+            sqrt(1-ce^2))
+try.x
+try.p<-dt(try.x,df=95)
+
+#write.csv(try.x, "~/Desktop/sapling_species_correlations.csv")
+#write.csv(try.p, "~/Desktop/sapling_species_pval.csv")
+
+#cannot run categorical variables with correlations
+cx <- cor(two_env,method="pearson",scores(sapordi,dis="si"))
+try <- (cx*sqrt(96-2)/
+          sqrt(1-cx^2))
+try
+try.p2<-dt(try,df=95)
+try.p2
+
+#write.csv(try, "~/Desktop/sapling_env_cor.csv")
+#write.csv(try.p2, "~/Desktop/sapling_env_pval.csv")
 
 #env<-na.omit(env)
 #there is a group of NA values. Need to figure out how to join the datasets together to maintain the corner but not the NAs
@@ -299,6 +351,137 @@ vif.cca(mod)
 
 
 ## Premer end. 
+
+
+trt<-env$THIN_METH
+trt<-na.omit(trt)
+dis <- vegdist(sapwide)
+mod <- betadisper(dis, trt)
+mod
+
+#multivariate dispersion
+test<-mrpp(dat=dis, grouping=trt, permutations=999)
+test
+#add in adonis (PERMANOVA) test
+
+
+test
+centroids<-data.frame(grps=rownames(mod$centroids),data.frame(mod$centroids))
+vectors<-data.frame(group=mod$group,data.frame(mod$vectors))
+seg.data<-cbind(vectors[,1:3],centroids[rep(1:nrow(centroids),as.data.frame(table(vectors$group))$Freq),2:3])
+names(seg.data)<-c("group","v.PCoA1","v.PCoA2","PCoA1","PCoA2")
+grp1.hull<-seg.data[seg.data$group=="control",1:3][chull(seg.data[seg.data$group=="control",2:3]),]
+grp2.hull<-seg.data[seg.data$group=="crown",1:3][chull(seg.data[seg.data$group=="crown",2:3]),]
+grp3.hull<-seg.data[seg.data$group=="dominant",1:3][chull(seg.data[seg.data$group=="dominant",2:3]),]
+grp4.hull<-seg.data[seg.data$group=="low",1:3][chull(seg.data[seg.data$group=="low",2:3]),]
+all.hull<-rbind(grp1.hull,grp2.hull,grp3.hull,grp4.hull)
+
+panel.a<-ggplot() + 
+  geom_point(data=centroids[1,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=16) + 
+  geom_point(data=seg.data[seg.data$group %in% "control",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=16) +
+  labs(title="Control",x="",y="") +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.25,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.b<-ggplot() + 
+  geom_point(data=centroids[2,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=17) + 
+  geom_point(data=seg.data[seg.data$group %in% "crown",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=17) +
+  labs(title="Crown",x="",y="") +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.25,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.c<-ggplot() + 
+  geom_point(data=centroids[3,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=15) + 
+  geom_point(data=seg.data[seg.data$group %in% "dominant",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15) +
+  labs(title="Dominant",x="",y="") +
+  coord_cartesian(xlim = c(-0.1,0.7), ylim = c(-0.25,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.d<-ggplot() + 
+  geom_point(data=centroids[3,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=15) + 
+  geom_point(data=seg.data[seg.data$group %in% "low",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15) +
+  labs(title="Low",x="",y="") +
+  coord_cartesian(xlim = c(-0.1,0.7), ylim = c(-0.25,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.e<-ggplot() + 
+  geom_point(data=centroids[,1:3], aes(x=PCoA1,y=PCoA2,shape=grps),size=4,colour="red") + 
+  geom_point(data=seg.data, aes(x=v.PCoA1,y=v.PCoA2,shape=group),size=2) +
+  labs(title="All",x="",y="") +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.25,0.2)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+grid.arrange(panel.a,panel.b,panel.c,panel.d, panel.e, nrow=2)
+
+#add vectors and hulls
+panel.a<-ggplot() +
+  geom_polygon(data=all.hull[all.hull=="control",],aes(x=v.PCoA1,y=v.PCoA2),colour="blue",alpha=0,linetype="dashed") +
+  geom_segment(data=seg.data[seg.data$group %in% "control",],aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) + 
+  geom_point(data=centroids[1,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=16) + 
+  geom_point(data=seg.data[seg.data$group %in% "control",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=16,colour="blue") +
+  labs(title="Control",x="",y="") +
+  coord_cartesian(xlim = c(-0.7,0.7), ylim = c(-0.7,0.7)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.b<-ggplot() +
+  geom_polygon(data=all.hull[all.hull=="crown",],aes(x=v.PCoA1,y=v.PCoA2),colour="orange",alpha=0,linetype="dashed") +
+  geom_segment(data=seg.data[seg.data$group %in% "crown",],aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) + 
+  geom_point(data=centroids[2,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=17) + 
+  geom_point(data=seg.data[seg.data$group %in% "crown",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=17,colour="orange") +
+  labs(title="Crown",x="",y="") +
+  coord_cartesian(xlim = c(-0.7,0.7), ylim = c(-0.7,0.7)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.c<-ggplot() +   
+  geom_polygon(data=all.hull[all.hull=="dominant",],aes(x=v.PCoA1,y=v.PCoA2),colour="green",alpha=0,linetype="dashed") +
+  geom_segment(data=seg.data[seg.data$group %in% "dominant",],aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) +
+  geom_point(data=centroids[3,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=15) + 
+  geom_point(data=seg.data[seg.data$group %in% "dominant",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15,colour="green") + 
+  labs(title="Dominant",x="",y="") +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.7,0.7)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+
+panel.d<-ggplot() +
+  geom_polygon(data=all.hull[all.hull=="low",],aes(x=v.PCoA1,y=v.PCoA2),colour="purple",alpha=0,linetype="dashed") +
+  geom_segment(data=seg.data[seg.data$group %in% "low",],aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) +
+  geom_point(data=centroids[3,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=15) + 
+  geom_point(data=seg.data[seg.data$group %in% "low",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15,color="purple") +
+  labs(title="Low",x="",y="") +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.7,0.7)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.e<-ggplot() + 
+  geom_polygon(data=all.hull[all.hull=="control",],aes(x=v.PCoA1,y=v.PCoA2),colour="blue",alpha=0,linetype="dashed") +
+  geom_polygon(data=all.hull[all.hull=="crown",],aes(x=v.PCoA1,y=v.PCoA2),colour="orange",alpha=0,linetype="dashed") +
+  geom_polygon(data=all.hull[all.hull=="dominant",],aes(x=v.PCoA1,y=v.PCoA2),colour="green",alpha=0,linetype="dashed") +
+  geom_polygon(data=all.hull[all.hull=="low",],aes(x=v.PCoA1,y=v.PCoA2),colour="purple",alpha=0,linetype="dashed") +
+  geom_segment(data=seg.data,aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) + 
+  geom_point(data=centroids[,1:3], aes(x=PCoA1,y=PCoA2,shape=grps),size=4,colour="red") + 
+  geom_point(data=seg.data[seg.data$group %in% "control",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=16,colour="blue") +
+  geom_point(data=seg.data[seg.data$group %in% "crown",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=17,colour="orange") +
+  geom_point(data=seg.data[seg.data$group %in% "dominant",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15,colour="green") +
+  geom_point(data=seg.data[seg.data$group %in% "low",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15,color="purple") +
+  labs(title="All",x="",y="") +
+  coord_cartesian(xlim = c(-0.7,0.7), ylim = c(-0.7,0.7)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+grid.arrange(panel.a,panel.b,panel.c,panel.d, panel.e, nrow=2)
+
+
+
+
+
 
 
 
@@ -398,12 +581,192 @@ ordiplot(sap.rda.vsurf, scaling = 2, type = "text")
 RsquareAdj(sap.rda.vsurf)$adj.r.squared
 
 
+#####MRPP comparing overstory and understory########################################################
+
+#first bring in sapling data
+setwd("~/Google Drive/My Drive/CTRN_CFRU_Share/raw/csv")
+
+
+saplings <- read.csv("Saplings.csv")[,2:9]
+
+saplings <- filter(saplings, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | SITEid == "HR" | SITEid == "KI" | SITEid == "LM" | SITEid == "LT" | SITEid == "PA" | SITEid == "PE" | SITEid == "RC" | SITEid == "RR" | SITEid == "SA" | SITEid == "SC" | SITEid == "SR" | SITEid == "WB") 
+saplings[saplings == "SpecAld"]<-"SA"
+saplings[saplings == "HM"]<-"EH"
+saplings[saplings == "CH"]<-"BC"
+
+
+#Filter for just year 2018
+saplings18<-filter(saplings, YEAR == 2018)
+unique(saplings18$SPP)
+
+saplings$uid <- as.data.frame(paste0(saplings$SITEid,".",saplings$PLOTid,".",saplings$CORNERid))
+template <- data.frame(uid=unique(saplings$uid))
+names(template)
+template$uid <- (template$paste0.saplings.SITEid.......saplings.PLOTid.......saplings.CORNERid.)
+names(template)
+templ <- data.frame(uid=template$uid)
+saplings18$uid <- as.factor(paste0(saplings18$SITEid,".",saplings18$PLOTid,".",saplings18$CORNERid))
+saplings.df <- left_join(templ,saplings18)
 
 
 
+#filter for species >5%
+branch <-filter(saplings.df, SPP =="PB"|SPP == "OT"|SPP=="NC"|SPP=="RM"|SPP=="RS"|SPP=="WP"|SPP=="BF"|SPP=="YB"|SPP=="EH"|SPP=="QA"|SPP=="BC")
+
+unique(branch$SPP)
+
+head(branch)
+branch$X1.2.inch[is.na(branch$X1.2.inch)] <- 0
+branch$X1.inch[is.na(branch$X1.inch)] <- 0
+branch$X2.inch[is.na(branch$X2.inch)] <- 0
 
 
+brancher <- branch%>%
+  mutate(SAP_EXP = 62.5,
+         bapa.half = ((0.5^2*0.005454)*X1.2.inch)*SAP_EXP,
+         bapa.one = (1.0^2*0.005454)*X1.inch*SAP_EXP,
+         bapa.two = (2.0^2)*0.005454*X2.inch*SAP_EXP)
 
+brancher$sap.bapa <- brancher$bapa.half+brancher$bapa.one+brancher$bapa.two
+head(brancher)
+
+
+plot_summary_sap <- brancher%>%
+  group_by(SITEid, PLOTid,YEAR)%>%
+  summarise(SAP_TPA_total = sum(SAP_EXP),
+            SAPBA_total = sum(sap.bapa))
+
+branched <- brancher%>%
+  group_by(SITEid, PLOTid,YEAR, SPP)%>%
+  summarise(SAP_TPA = sum(SAP_EXP),
+            SAPBA = sum(sap.bapa))
+
+branches <- branched%>%
+  left_join(.,plot_summary_sap)%>%
+  mutate(prop_tpa = (SAP_TPA/SAP_TPA_total),
+         prop_ba = (SAPBA/SAPBA_total),
+         iv = ((prop_tpa + prop_ba)/2))
+
+
+#create site-plot identifier
+branches$sapID<-paste0(branches$SITEid,"-",branches$PLOTid)
+
+#get data in long format
+molten <- melt(as.data.frame(branches),id=c("sapID","iv","SPP"))
+sapwide <- dcast(molten,sapID~SPP,value.var = "iv",mean)
+sapwide[is.na(sapwide)] <- 0
+head(sapwide)
+# double check they all add to 1
+rowSums(sapwide[2:12])
+names<-sapwide$sapID
+rownames(sapwide)<-names
+new<-data.frame(sapID=sapwide$sapID,BC=sapwide$BC,BF=sapwide$BF,EH=sapwide$EH,NC=sapwide$NC,OT=sapwide$OT,PB=sapwide$PB,
+               QA=sapwide$QA,RM=sapwide$RM,RS=sapwide$RS,WP=sapwide$WP,YB=sapwide$YB,BS="0",GB="0",PC="0",
+               RP="0",ST="0",WA="0",WC="0",WS="0",cover="UN")
+
+#now grab the overstory
+trees <- read.csv("Trees2023.csv")
+locs <- read.csv("Tree_locations_species.csv")
+tree_species <- locs[c(1:3,6)]
+over <- left_join(trees, tree_species)
+overstory <- over[c(2:9,27)]
+overstory$DBH[is.na(overstory$DBH)] <- 0
+overstory <- dplyr::filter(overstory,DBH>2.5)
+overstory$SPP[is.na(overstory$SPP)] <- "OH"
+overstory[overstory == "WB"]<-"PB"
+overstory[overstory == "MA"]<-"OH"
+overstory$EXP<-5
+overstory<-filter(overstory, YEAR==2018)
+overstory<-filter(overstory, SPP!="OH")
+overstory<-filter(overstory, SPP!="UNK")
+overstory<-filter(overstory, SPP!="OT")
+unique(overstory$SPP)
+overstory$BA<-(overstory$DBH^2)*0.005454
+overstory<-overstory%>%
+  mutate(BA_TPA = BA * EXP)
+plot_summary <- overstory%>%
+  group_by(SITEid, PLOTid, YEAR)%>%
+  summarise(TPA_total = sum(EXP),
+            BA_total = sum(BA_TPA))
+overstory <- overstory%>%
+  group_by(SITEid, PLOTid, YEAR, SPP)%>%
+  summarise(TPA = sum(EXP),
+            OVBA = sum(BA_TPA))
+branch<-left_join(overstory, plot_summary)
+branch <- branch%>%
+  mutate(prop_tpa = (TPA/TPA_total),
+         prop_ba = (OVBA/BA_total))
+branch <- branch%>%
+  mutate(iv = ((prop_tpa + prop_ba)/2))
+branch$sapID<-paste0(branch$SITEid,"-",branch$PLOTid)
+molten <- melt(as.data.frame(branch),id=c("sapID","iv","SPP"))
+overwide <- dcast(molten,sapID~SPP,value.var = "iv",mean)
+overwide[is.na(overwide)] <- 0
+head(overwide)
+names<-overwide$sapID
+rownames(overwide)<-names
+rowSums(overwide[2:17])
+overwide$cover<-"overstory"
+overwide$BC<-"0"
+overwide$NC<-"0"
+overwide$OT<-"0"
+#bring together? i think that worked
+allin<-rbind(overwide, new)
+
+#seperate out into sp and env groups
+sp<-allin[,c(1:17,19:21)]
+env<-allin[,c(1,18)]
+sp$BS<-as.numeric(sp$BS)
+sp$GB<-as.numeric(sp$GB)
+sp$PC<-as.numeric(sp$PC)
+sp$RP<-as.numeric(sp$RP)
+sp$ST<-as.numeric(sp$ST)
+sp$WA<-as.numeric(sp$WA)
+sp$WC<-as.numeric(sp$WC)
+sp$WS<-as.numeric(sp$WS)
+sp$BC<-as.numeric(sp$BC)
+sp$NC<-as.numeric(sp$NC)
+sp$OT<-as.numeric(sp$OT)
+summary(sp)
+#do the test
+dis <- vegdist(sp[,2:20])
+mod <- betadisper(dis,env$cover)
+mod
+test<-mrpp(dat=dis, grouping=env$cover, permutations=999)
+test
+
+centroids<-data.frame(grps=rownames(mod$centroids),data.frame(mod$centroids))
+vectors<-data.frame(group=mod$group,data.frame(mod$vectors))
+seg.data<-cbind(vectors[,1:3],centroids[rep(1:nrow(centroids),as.data.frame(table(vectors$group))$Freq),2:3])
+names(seg.data)<-c("group","v.PCoA1","v.PCoA2","PCoA1","PCoA2")
+grp1.hull<-seg.data[seg.data$group=="overstory",1:3][chull(seg.data[seg.data$group=="overstory",2:3]),]
+grp2.hull<-seg.data[seg.data$group=="UN",1:3][chull(seg.data[seg.data$group=="UN",2:3]),]
+all.hull<-rbind(grp1.hull,grp2.hull)
+
+grp1.hull<-seg.data[seg.data$group=="overstory",1:3][chull(seg.data[seg.data$group=="old",2:4]),]
+grp2.hull<-seg.data[seg.data$group=="UN",1:3][chull(seg.data[seg.data$group=="new",2:4]),]
+all.hull<-rbind(grp1.hull,grp2.hull)
+
+panel.a<-ggplot() +
+  geom_polygon(data=all.hull[all.hull=="overstory",],aes(x=v.PCoA1,y=v.PCoA2),colour="blue",alpha=0,linetype="dashed") +
+  geom_segment(data=seg.data[seg.data$group %in% "overstory",],aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) + 
+  geom_point(data=centroids[1,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=16) + 
+  geom_point(data=seg.data[seg.data$group %in% "overstory",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=16,colour="blue") +
+  labs(title="Overstory",x="",y="") +
+  coord_cartesian(xlim = c(-0.7,0.7), ylim = c(-0.7,0.7)) +
+  theme_classic() + 
+  theme(legend.position="none")
+
+panel.b<-ggplot() +
+  geom_polygon(data=all.hull[all.hull=="UN",],aes(x=v.PCoA1,y=v.PCoA2),colour="orange",alpha=0,linetype="dashed") +
+  geom_segment(data=seg.data[seg.data$group %in% "UN",],aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) + 
+  geom_point(data=centroids[2,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=17) + 
+  geom_point(data=seg.data[seg.data$group %in% "UN",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=17,colour="orange") +
+  labs(title="Understory",x="",y="") +
+  coord_cartesian(xlim = c(-0.7,0.7), ylim = c(-0.7,0.7)) +
+  theme_classic() + 
+  theme(legend.position="none")
+grid.arrange(panel.a,panel.b)
 
 #calculate which species are below 5%
 #sapwide <- dcast(saplings18,sapID~SPP, value.var = "X1.2.inch")

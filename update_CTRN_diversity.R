@@ -98,24 +98,44 @@ act <- actual.rem[c(1,2,6)]
 final.over <- left_join(cleaned.over,act)
 final.over$wdi.time <- final.over$wd.time-final.over$SWC2
 
+#converting WD variables to WS variables
+final.over$wdi.time<-final.over$wdi.time * -1
+final.over$mean.WD<-final.over$mean.WD * -1
+final.over$wd.time<-final.over$wd.time * -1
+
+#renaming the WD variables accordingly 
+
+colnames(final.over)[colnames(final.over) == 'wdi.time'] <- 'wsi.time'
+colnames(final.over)[colnames(final.over) == 'wd.time'] <- 'ws.time'
+colnames(final.over)[colnames(final.over) == 'mean.WD'] <- 'mean.WS'
+
 # first, let's just run the overstory, then we can run the understory
 ##
 names(final.over)
 require(leaps)
 models.ov <- regsubsets(Shannon~elevation+tri+tpi+roughness+slope+aspect+flowdir+tmin+tmean+tmax+dew+vpdmax+
                           vpdmin+McNab+Bolstad+Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+Parent+
-                          wd.time+wdi.time+mean.WD+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+THIN_METH+
+                          ws.time+wsi.time+mean.WS+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+THIN_METH+
                           tst+actual.removed+PCT,really.big = TRUE,
                         data = final.over,method="exhaustive")
 summary(models.ov)
+#tmean,dew,McNab,Planform,wsi.time,WHC,ex.ca,PCT,THIN_METH
 
 #all variables from regsubsets selection
-model1<-lm(Shannon~roughness+tmean+dew+Winds50+wd.time+wdi.time+WHC+SWC2+THIN_METH,data=final.over)
+model1<-lm(Shannon~tmean+dew+McNab+Planform+wsi.time+WHC+ex.ca+THIN_METH+PCT,data=final.over)
 summary(model1)
-check_collinearity(model1)
+check_collinearity(model1) #tmean and dew have VIF above 10
 plot(model1)
 AIC(model1)
 
+mod2<-lm(Shannon~dew+McNab+Planform+wsi.time+WHC+ex.ca+THIN_METH+PCT,data=final.over)
+summary(mod2)
+AIC(mod2)
+check_collinearity(mod2)
+
+mod3<-lm(Shannon~tmean+McNab+Planform+wsi.time+WHC+ex.ca+THIN_METH+PCT,data=final.over)
+summary(mod3)
+AIC(mod3)
 
 
 names(final.over)

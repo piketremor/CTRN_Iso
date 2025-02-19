@@ -78,7 +78,7 @@ plot(over.ord)
 plot(over.ord)
 plot(over.ord,type="n")
 points(over.ord,display="sites",cex=2,pch=21,col="red", bg="yellow")
-text(over.ord,display="spec",cex=1.5,col="blue")
+text(over.ord,display="spec",cex=1.5,col="red")
 over.ord
 summary(over.ord)
 over.ord$stress
@@ -191,6 +191,19 @@ final.over$sapID<-paste0(final.over$SITEid,"-",final.over$PLOTid)
 #change from integer to numeric
 final.over$flowdir<-as.numeric(final.over$flowdir)
 names(final.over)
+
+#converting WD variables to WS variables
+final.over$wdi.time<-final.over$wdi.time * -1
+final.over$mean.WD<-final.over$mean.WD * -1
+final.over$wd.time<-final.over$wd.time * -1
+
+#renaming the WD variables accordingly 
+
+colnames(final.over)[colnames(final.over) == 'wdi.time'] <- 'wsi.time'
+colnames(final.over)[colnames(final.over) == 'wd.time'] <- 'ws.time'
+colnames(final.over)[colnames(final.over) == 'mean.WD'] <- 'mean.WS'
+
+
 #final.over<-na.omit(final.over)
 #join together sapling and environmental data to make sure the number of observations match
 bark<-left_join(final.over, overwide)
@@ -219,29 +232,52 @@ names(env)
 
 # Premer pickup here. 
 head(overwide)
+set.seed(123)
 #sap.rda <- rda(sapwide ~ tmean+dew+actual.removed+wd.time, data=env, na.action = na.exclude)
 vare.dist <- vegdist(overwide)
-vare.ord<-metaMDS(vare.dist, distance = "bray",
+vare.ord<-metaMDS(overwide, distance = "bray",
                   trymax=250,autotransform =TRUE,k=3)
 over.rdaall<-rda(overwide~.,data=env,na.action="na.omit")
 env[is.na(env)] <- 0
 ef <- envfit(overwide, env,na.action="na.pass")
+ef
+plot(ef)
 mod0 <- rda(overwide~1,env)
 mod1 <- rda(overwide~.,env)
+
+
 bstick(mod0)
 screeplot(mod0,bstick=TRUE,type="lines")
 summary(eigenvals(mod0))
 
+
+#sig<-select(env, c(WHC,dew,roughness))
+#siggy<-envfit(overwide,sig,na.action="na.pass")
+#plot(siggy)
+
 set.seed(123)
 mod <- ordistep(mod0, scope=formula(mod1),direction="both")
+summary(mod)
+#PCT,dew,ph,tst,WHC,ex.k,roughness,ex.ca,THIN_METH, actual.removed
 anova(mod,type="t")
 anova(mod, by = "margin")
+
+#significance of constraints
+anova(mod, by="term")
+dis<-vegdist(overwide)
+test1<-adonis2(mod,data=env,by="terms")
 vif.cca(mod)
-re.env <- env[c(11,27,36,24,29,4,26,38)]
-ordisurf(vare.ord ~ actual.removed, env, bubble = 1)
-fit <- ordisurf(vare.ord~wdi.time,env,famkly=quasipoisson)
+re.env <- select(env, c(dew,ph,tst,WHC,ex.k,roughness,ex.ca,THIN_METH,actual.removed))
+ordisurf(vare.ord ~ actual.removed, re.env, bubble = 1)
+text(vare.ord,display="spec",cex=1,col="blue")
+env$wdi.time<-env$wdi.time*-1
+fit <- ordisurf(vare.ord~WHC,re.env,family=quasipoisson)
 calibrate(fit)
 
+RsquareAdj(mod)$adj.r.squared
+summary(mod)
+final.mod<-rda(overwide~.,re.env)
+anova(final.mod, by="term")
 #species correlations with axes and associated p values
 ce <- cor(overwide,method="pearson",scores(vare.ord,dis="si"))
 try.x <- (ce*sqrt(96-2)/
@@ -249,55 +285,60 @@ try.x <- (ce*sqrt(96-2)/
 try.x
 dt(try.x,df=95)
 
+
 #cannot run categorical variables with correlations
 cx <- cor(re.env,method="pearson",scores(vare.ord,dis="si"))
 try <- (cx*sqrt(96-2)/
           sqrt(1-cx^2))
 try
-dt(try,df=95)
+try.p<-dt(try,df=95)
 
 
-
+#write.csv(cx, "~/Desktop/overstory.environmental.csv")
+#write.csv(try.p,"~/Desktop/overstory.pval.csv")
 
 ## Premer end. 12/6/2024
 
-head(sapwide)
+#head(sapwide)
 #sap.rda <- rda(sapwide ~ tmean+dew+actual.removed+wd.time, data=env, na.action = na.exclude)
-sap.rdaall<-rda(sapwide~.,data=env,na.action="na.omit")
+#sap.rdaall<-rda(overwide~.,data=env,na.action="na.omit")
 
-summary(sap.rdaall)
-summary(sap.rdaall)
-ordiplot(sap.rdaall, scaling = 2, type = "text")
-step.forward <- ordiR2step(rda(sapwide ~ 1, data=env), scope=formula(sap.rdaall), R2scope = F, direction="forward", pstep=1000)
-anova(sap.rdaall, by="terms", step=1000) 
-anova(sap.rdaall, step=1000)
-
-
-names(env)
+#summary(sap.rdaall)
+#summary(sap.rdaall)
+#ordiplot(sap.rdaall, scaling = 2, type = "text")
+#step.forward <- ordiR2step(rda(overwide ~ 1, data=env), scope=formula(sap.rdaall), R2scope = F, direction="forward", pstep=1000)
+#anova(sap.rdaall, by="terms", step=1000) 
+#anova(sap.rdaall, step=1000)
 
 
-env<-select(env, c(PCT, dew, ph, SWC2, wd.time,nit,WHC,dep,ppt,THIN_METH))
-sapordi<-metaMDS(sapwide[,1:16], distance = "bray")
-en<-envfit(sapordi, env, permutations=999)
+#names(env)
+
+
+env<-select(env, c(PCT, dew, ph,tst,WHC,ex.k, THIN_METH))
+sapordi<-metaMDS(overwide, distance = "bray")
+en<-envfit(overwide, env, na.action="na.pass")
 summary(sapordi)
 sapordi
 plot(sapordi)
 stressplot(sapordi)
+anova(en,by="term")
 
 #plotting with the ellipses grouped by thinning method
 gof<-goodness(sapordi)
 plot(en)
 trt<-env$THIN_METH
-data.scores<-as.data.frame(scores(sapordi)$species) 
-data.scores$site <-as.data.frame(scores(sapordi)$sites)
-data.scores$THIN_METH = env$THIN_METH
+data.scores<-as.data.frame(scores(mod)$species) 
+data.scores$site <-as.data.frame(scores(mod)$sites)
+data.scores$THIN_METH = trt
 ggplot(data=data.scores) + 
-  stat_ellipse(aes(x=NMDS1,y=NMDS2,colour=THIN_METH),level = 0.50) +
-  geom_point(aes(x=NMDS1,y=NMDS2,shape=THIN_METH,colour=THIN_METH),size=4) + 
-  theme_classic()
+  stat_ellipse(aes(x=RDA1,y=RDA2,colour=THIN_METH),level = 0.50) +
+  geom_point(aes(x=RDA1,y=RDA2,colour=THIN_METH),size=4) + 
+  theme_classic()+
+  labs(color="Thinning Method")
+  
 adon.results<-adonis2(sapwide ~ trt, method="bray",perm=999)
 print(adon.results)
-dis <- vegdist(sapwide)
+
 
 slice <- left_join(over.ID,slice,by="uid")
 slice$tst <- as.numeric(slice$tst)
@@ -319,9 +360,15 @@ ff.env <- slice.ff[,c(2:15,18,19)]
 
 
 #mulitvariate dispersion grouped by thinning method
+dis <- vegdist(overwide)
 mod <- betadisper(dis, trt)
 mod
 
+test<-mrpp(dat=dis, grouping=trt, permutations=999)
+
+#adonis (PERMANOVA) test
+
+test
 centroids<-data.frame(grps=rownames(mod$centroids),data.frame(mod$centroids))
 vectors<-data.frame(group=mod$group,data.frame(mod$vectors))
 seg.data<-cbind(vectors[,1:3],centroids[rep(1:nrow(centroids),as.data.frame(table(vectors$group))$Freq),2:3])
@@ -376,79 +423,86 @@ grid.arrange(panel.a,panel.b,panel.c,panel.d, panel.e, nrow=2)
 
 #add vectors and hulls
 panel.a<-ggplot() +
-  geom_polygon(data=all.hull[all.hull=="control",],aes(x=v.PCoA1,y=v.PCoA2),colour="black",alpha=0,linetype="dashed") +
+  geom_polygon(data=all.hull[all.hull=="control",],aes(x=v.PCoA1,y=v.PCoA2),colour="blue",alpha=0,linetype="dashed") +
   geom_segment(data=seg.data[seg.data$group %in% "control",],aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) + 
   geom_point(data=centroids[1,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=16) + 
-  geom_point(data=seg.data[seg.data$group %in% "control",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=16) +
+  geom_point(data=seg.data[seg.data$group %in% "control",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=16,colour="blue") +
   labs(title="Control",x="",y="") +
   coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.25,0.2)) +
   theme_classic() + 
   theme(legend.position="none")
 
 panel.b<-ggplot() +
-  geom_polygon(data=all.hull[all.hull=="crown",],aes(x=v.PCoA1,y=v.PCoA2),colour="black",alpha=0,linetype="dashed") +
+  geom_polygon(data=all.hull[all.hull=="crown",],aes(x=v.PCoA1,y=v.PCoA2),colour="orange",alpha=0,linetype="dashed") +
   geom_segment(data=seg.data[seg.data$group %in% "crown",],aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) + 
   geom_point(data=centroids[2,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=17) + 
-  geom_point(data=seg.data[seg.data$group %in% "crown",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=17) +
+  geom_point(data=seg.data[seg.data$group %in% "crown",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=17,colour="orange") +
   labs(title="Crown",x="",y="") +
   coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.25,0.2)) +
   theme_classic() + 
   theme(legend.position="none")
 
 panel.c<-ggplot() +   
-  geom_polygon(data=all.hull[all.hull=="dominant",],aes(x=v.PCoA1,y=v.PCoA2),colour="black",alpha=0,linetype="dashed") +
+  geom_polygon(data=all.hull[all.hull=="dominant",],aes(x=v.PCoA1,y=v.PCoA2),colour="green",alpha=0,linetype="dashed") +
   geom_segment(data=seg.data[seg.data$group %in% "dominant",],aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) +
   geom_point(data=centroids[3,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=15) + 
-  geom_point(data=seg.data[seg.data$group %in% "dominant",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15) + 
+  geom_point(data=seg.data[seg.data$group %in% "dominant",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15,colour="green") + 
   labs(title="Dominant",x="",y="") +
-  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.5,0.2)) +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.5,0.4)) +
   theme_classic() + 
   theme(legend.position="none")
 
 
 panel.d<-ggplot() +
-  geom_polygon(data=all.hull[all.hull=="low",],aes(x=v.PCoA1,y=v.PCoA2),colour="black",alpha=0,linetype="dashed") +
+  geom_polygon(data=all.hull[all.hull=="low",],aes(x=v.PCoA1,y=v.PCoA2),colour="purple",alpha=0,linetype="dashed") +
   geom_segment(data=seg.data[seg.data$group %in% "low",],aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) +
   geom_point(data=centroids[3,1:3], aes(x=PCoA1,y=PCoA2),size=4,colour="red",shape=15) + 
-  geom_point(data=seg.data[seg.data$group %in% "low",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15) +
+  geom_point(data=seg.data[seg.data$group %in% "low",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15,colour="purple") +
   labs(title="Low",x="",y="") +
   coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.25,0.2)) +
   theme_classic() + 
   theme(legend.position="none")
 
+
 panel.e<-ggplot() + 
-  geom_polygon(data=all.hull,aes(x=v.PCoA1,y=v.PCoA2),colour="black",alpha=0,linetype="dashed") +
+  geom_polygon(data=all.hull[all.hull=="low",],aes(x=v.PCoA1,y=v.PCoA2),colour="purple",alpha=0,linetype="dashed") +
+  geom_polygon(data=all.hull[all.hull=="dominant",],aes(x=v.PCoA1,y=v.PCoA2),colour="green",alpha=0,linetype="dashed") +
+  geom_polygon(data=all.hull[all.hull=="crown",],aes(x=v.PCoA1,y=v.PCoA2),colour="orange",alpha=0,linetype="dashed") +
+  geom_polygon(data=all.hull[all.hull=="control",],aes(x=v.PCoA1,y=v.PCoA2),colour="blue",alpha=0,linetype="dashed") +
   geom_segment(data=seg.data,aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) + 
   geom_point(data=centroids[,1:3], aes(x=PCoA1,y=PCoA2,shape=grps),size=4,colour="red") + 
-  geom_point(data=seg.data, aes(x=v.PCoA1,y=v.PCoA2,shape=group),size=2) +
+  geom_point(data=seg.data[seg.data$group %in% "low",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15,colour="purple") +
+  geom_point(data=seg.data[seg.data$group %in% "dominant",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=15,colour="green") +
+  geom_point(data=seg.data[seg.data$group %in% "crown",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=17,colour="orange") +
+  geom_point(data=seg.data[seg.data$group %in% "control",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=16,colour="blue") +
   labs(title="All",x="",y="") +
-  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.5,0.2)) +
+  coord_cartesian(xlim = c(-0.5,0.7), ylim = c(-0.5,0.4)) +
   theme_classic() + 
   theme(legend.position="none")
 
 grid.arrange(panel.a,panel.b,panel.c,panel.d, panel.e, nrow=2)
 #more graphing
-data.scores = as.data.frame(scores(sapordi)$sites)
+data.scores = as.data.frame(scores(mod)$sites)
 data.scores$THIN_METH = env$THIN_METH
 
 Type<-c("Softwood", "Softwood","Softwood")
 
 en_coord_cont = as.data.frame(scores(en, "vectors")) * ordiArrowMul(en)
 en_coord_cat = as.data.frame(scores(en, "factors")) * ordiArrowMul(en)
-speciesscores<-as.data.frame(scores(sapordi)$species)
+speciesscores<-as.data.frame(scores(mod, display = "species"))
 
-gg = ggplot(data = data.scores, aes(x = NMDS1, y = NMDS2)) + 
+gg = ggplot(data = data.scores, aes(x = RDA1, y = RDA2)) + 
   geom_point(data = data.scores, aes(colour = THIN_METH), size = 3, alpha = 0.5) + 
   scale_colour_manual(values = c("orange", "steelblue", "lightblue2", "gold1"))  + 
-  geom_segment(aes(x = 0, y = 0, xend = NMDS1, yend = NMDS2), 
+  geom_segment(aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
                data = en_coord_cont, size =1, alpha = 0.5, colour = "grey30") +
-  geom_point(data = en_coord_cat, aes(x = NMDS1, y = NMDS2), 
+  geom_point(data = en_coord_cat, aes(x = RDA1, y = RDA2), 
              shape = "diamond", size = 4, alpha = 0.6, colour = "navy") +
-  geom_text(data = en_coord_cat, aes(x = NMDS1, y = NMDS2+0.04), 
+  geom_text(data = en_coord_cat, aes(x = RDA1, y = RDA2+0.04), 
             label = row.names(en_coord_cat), colour = "navy", fontface = "bold") + 
-  geom_text(data = en_coord_cont, aes(x = NMDS1, y = NMDS2), colour = "grey30", 
+  geom_text(data = en_coord_cont, aes(x = RDA1, y = RDA2), colour = "grey30", 
             fontface = "bold", label = row.names(en_coord_cont)) + 
-  geom_text(data=speciesscores,aes(x=NMDS1,y=NMDS2, label=row.names(speciesscores)),size=5,vjust=0, colour="navy")+
+  geom_text(data=speciesscores,aes(x=RDA1,y=RDA2, label=row.names(speciesscores)),size=5,vjust=0, colour="navy")+
   theme(axis.title = element_text(size = 10, face = "bold", colour = "grey30"), 
         panel.background = element_blank(), panel.border = element_rect(fill = NA, colour = "grey30"), 
         axis.ticks = element_blank(), axis.text = element_blank(), legend.key = element_blank(), 
@@ -458,6 +512,11 @@ gg = ggplot(data = data.scores, aes(x = NMDS1, y = NMDS2)) +
 
 gg
 
+
+ordiplot(final.mod, scaling = 2, type = "none")%>%
+  points("sites", pch=16)%>%
+  text("species", col="red")%>%
+  text(what="biplot", col="blue")
 
 
 #graphing grouped by softwood or hardwood
