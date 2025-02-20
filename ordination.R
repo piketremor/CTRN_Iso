@@ -131,7 +131,9 @@ final.over$sapID<-paste0(final.over$SITEid,"-",final.over$PLOTid)
 #change from integer to numeric
 final.over$flowdir<-as.numeric(final.over$flowdir)
 names(final.over)
+
 head(final.over)
+
 
 
 ##2018 Ordination and Data Cleaning
@@ -212,6 +214,33 @@ head(sapwide)
 rowSums(sapwide[2:12])
 names<-sapwide$sapID
 rownames(sapwide)<-names
+final.over<-filter(final.over,bapa>0)
+#join together sapling and environmental data to make sure the number of observations match
+final.over<-na.omit(final.over)
+bark<-left_join(sapwide, final.over)
+#bark[is.na(bark)] <- 0
+names<-bark$sapID #create list of sapID to set the rownames with 
+#separate the datasets back out
+sapwide<-bark[,c(1:12)]
+env<-bark[,21:74]
+names(sapwide)
+names(env)
+#add rownames
+#rownames(sapwide)<-names
+#rownames(env)<-names
+#remove sapID variable
+sapwide<-sapwide[,2:12]
+names(sapwide)
+names(env)
+head(env)
+head(sapwide)
+sapwide[is.na(sapwide)] <- 0
+head(sapwide)
+
+
+
+
+
 
 #NMDS
 sapordi<-metaMDS(sapwide[,2:12], distance = "bray",k=3)
@@ -482,7 +511,33 @@ grid.arrange(panel.a,panel.b,panel.c,panel.d, panel.e, nrow=2)
 
 
 
+#########Extra#######
+# Updates using Mike's code from overstory ordination 
+head(sapwide)
+#sap.rda <- rda(sapwide ~ tmean+dew+actual.removed+wd.time, data=env, na.action = na.exclude)
+sap.dist <- vegdist(sapwide)
+sap.ord<-metaMDS(sapwide, distance = "bray", k=3,na.action=na.exclude)
+sap.ord
+sap.rdaall<-rda(sapwide~.,data=env,na.action="na.omit")
+#env[is.na(env)] <- 0
+efsap <- envfit(sapwide, env,na.rm=TRUE)
+efsap
+sapmod0 <- rda(sapwide~1,env,na.rm=TRUE)
+sapmod1 <- rda(sapwide~.,env,na.rm=TRUE)
+bstick(sapmod0)
+screeplot(sapmod0,bstick=TRUE,type="lines")
+summary(eigenvals(sapmod0))
 
+set.seed(123)
+mod <- ordistep(sapmod0, scope=formula(sapmod1),direction="both",na.action=na.exclude)
+anova(mod,type="t")
+anova(mod, by = "margin")
+vif.cca(mod)
+re.env <- env[c(11,27,36,24,29,4,26,38)]
+ordisurf(vare.ord ~ actual.removed, env, bubble = 1, display="species")
+text(vare.ord,display="spec",cex=1.5,col="blue")
+fit <- ordisurf(vare.ord~wdi.time,env,family=quasipoisson)
+calibrate(fit)
 
 
 
