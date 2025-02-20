@@ -212,37 +212,9 @@ sapwide[is.na(sapwide)] <- 0
 head(sapwide)
 # double check they all add to 1
 rowSums(sapwide[2:12])
-names<-sapwide$sapID
-rownames(sapwide)<-names
-final.over<-filter(final.over,bapa>0)
-#join together sapling and environmental data to make sure the number of observations match
-final.over<-na.omit(final.over)
-bark<-left_join(sapwide, final.over)
-#bark[is.na(bark)] <- 0
-names<-bark$sapID #create list of sapID to set the rownames with 
-#separate the datasets back out
-sapwide<-bark[,c(1:12)]
-env<-bark[,21:74]
-names(sapwide)
-names(env)
-#add rownames
-#rownames(sapwide)<-names
-#rownames(env)<-names
-#remove sapID variable
-sapwide<-sapwide[,2:12]
-names(sapwide)
-names(env)
-head(env)
-head(sapwide)
-sapwide[is.na(sapwide)] <- 0
-head(sapwide)
-
-
-
-
-
 
 #NMDS
+setseeed(123)
 sapordi<-metaMDS(sapwide[,2:12], distance = "bray",k=3)
 stressplot(sapordi)
 sapordi
@@ -285,7 +257,6 @@ final.over <- filter(final.over,YEAR=="2018")
 unique(final.over$YEAR)
 #final.over<-na.omit(final.over)
 bark<-left_join(sapwide, final.over)
-bark[is.na(bark)] <- 0
 #removing observations that are missing THIN_METH data because can't replace NA w 0 due to factor 
 barky<-filter(bark, THIN_METH == "control" | THIN_METH == "crown" | THIN_METH == "low" | THIN_METH == "dominant")
 unique(barky$THIN_METH)
@@ -390,8 +361,6 @@ mod
 #multivariate dispersion
 test<-mrpp(dat=dis, grouping=trt, permutations=999)
 test
-#add in adonis (PERMANOVA) test
-
 
 test
 centroids<-data.frame(grps=rownames(mod$centroids),data.frame(mod$centroids))
@@ -507,132 +476,6 @@ panel.e<-ggplot() +
 grid.arrange(panel.a,panel.b,panel.c,panel.d, panel.e, nrow=2)
 
 
-
-
-
-
-#########Extra#######
-# Updates using Mike's code from overstory ordination 
-head(sapwide)
-#sap.rda <- rda(sapwide ~ tmean+dew+actual.removed+wd.time, data=env, na.action = na.exclude)
-sap.dist <- vegdist(sapwide)
-sap.ord<-metaMDS(sapwide, distance = "bray", k=3,na.action=na.exclude)
-sap.ord
-sap.rdaall<-rda(sapwide~.,data=env,na.action="na.omit")
-#env[is.na(env)] <- 0
-efsap <- envfit(sapwide, env,na.rm=TRUE)
-efsap
-sapmod0 <- rda(sapwide~1,env,na.rm=TRUE)
-sapmod1 <- rda(sapwide~.,env,na.rm=TRUE)
-bstick(sapmod0)
-screeplot(sapmod0,bstick=TRUE,type="lines")
-summary(eigenvals(sapmod0))
-
-set.seed(123)
-mod <- ordistep(sapmod0, scope=formula(sapmod1),direction="both",na.action=na.exclude)
-anova(mod,type="t")
-anova(mod, by = "margin")
-vif.cca(mod)
-re.env <- env[c(11,27,36,24,29,4,26,38)]
-ordisurf(vare.ord ~ actual.removed, env, bubble = 1, display="species")
-text(vare.ord,display="spec",cex=1.5,col="blue")
-fit <- ordisurf(vare.ord~wdi.time,env,family=quasipoisson)
-calibrate(fit)
-
-
-
-#step.through <- ordiR2step(rda(sapwide ~ 1, data=env, na.action = na.exclude), scope=formula(sap.rda,na.action=na.exclude), R2scope = F, direction="both", pstep=1000,na.action=na.exclude)
-#mod <- ordistep(mod0, scope=formula(sap.rda,na.action=na.exclude),direction="both",na.action=na.exclude)
-##Test individual environmental constraints
-
-###water deficit
-rda.wd<-rda(sapwide~mean.WD,data=env,na.action=na.exclude) #0.06
-summary(rda.wd)
-RsquareAdj(rda.wd)$adj.r.squared
-
-#water deficit index
-rda.wdi<-rda(sapwide~wsi.time,data=env,na.action=na.exclude) #0.05
-summary(rda.wdi)
-RsquareAdj(rda.wdi)$adj.r.squared
-
-###average water deficit ##winner
-rda.avg.wd<-rda(sapwide~mean.WD,data=env,na.action=na.exclude) #0.098
-summary(rda.avg.wd)
-RsquareAdj(rda.avg.wd)$adj.r.squared
-
-#cumulative water deficit
-rda.cumwd<-rda(sapwide~wd.time,data=env,na.action=na.exclude) #0.08
-summary(rda.cumwd)
-RsquareAdj(rda.cumwd)$adj.r.squared
-
-#running water deficit
-rda.runwd<-rda(sapwide~w,data=env,na.action=na.exclude) #0.03
-summary(rda.runwd)
-RsquareAdj(rda.runwd)$adj.r.squared
-
-#water holding capacity 
-rda.whc<-rda(sapwide~WHC,data=env,na.action=na.exclude) #0.049
-summary(rda.whc)
-RsquareAdj(rda.whc)$adj.r.squared
-
-#reduced model
-
-#model with the variables that were included for the diversity model and average water deficit (0.134)
-sap.rda.div <- rda(sapwide ~ dew+THIN_METH+ave.WD+actual.removed+ov.Hill, na.action = na.exclude, data=env)
-summary(sap.rda.div)
-ordiplot(sap.rda.div, scaling = 2, type = "text")
-anova(sap.rda.div, by="terms", step=1000)
-anova(sap.rda.div, step=1000)
-anova(sap.rda.div, by="axis", step=1000)
-RsquareAdj(sap.rda.div)$adj.r.squared
-
-
-rda.test<-rda(sapwide ~ vpdmax+THIN_METH+ave.WD+actual.removed+WDI, na.action = na.exclude, data=env)
-summary(rda.test)
-ordiplot(rda.test, scaling = 2, type = "text")
-RsquareAdj(rda.test)$adj.r.squared
-
-#model with all the variables from the forward selection procedure (0.29)
-sap.rda2<-rda(sapwide ~ ave.WD+WHC+ppt+SWC2+vpdmax+WDI+run.wd+cumulative.WD, data=env)
-summary(sap.rda2)
-ordiplot(sap.rda2, scaling = 2, type = "text")
-anova(sap.rda2, by="terms", step=1000)
-anova(sap.rda2, step=1000)
-RsquareAdj(sap.rda2)$adj.r.squared
-
-
-#model without ave.WD (0.25)
-sap.rda3 <- rda(sapwide ~ WHC+ppt+vpdmax+WDI+run.wd+cumulative.WD, data=env)
-summary(sap.rda3)
-ordiplot(sap.rda3, scaling = 2, type = "text")
-anova(sap.rda3, by="terms", step=1000)
-anova(sap.rda3, step=1000)
-RsquareAdj(sap.rda3)$adj.r.squared
-
-#model without cumulative.WD (0.24)
-sap.rda4<-rda(sapwide ~ ave.WD+WHC+ppt+vpdmax+WDI+run.wd, data=env)
-summary(sap.rda4)
-ordiplot(sap.rda4, scaling = 2, type = "text")
-anova(sap.rda4, by="terms", step=1000)
-anova(sap.rda4, step=1000)
-anova(sap.rda4, by = "axis", step = 1000)
-RsquareAdj(sap.rda4)$adj.r.squared
-
-#model withouth SWC2 and with run.wd instead of cumulative wdi (0.24)
-sap.rda5<-rda(sapwide ~ ave.WD+WHC+ppt+vpdmax+WDI+run.wd, data=env)
-summary(sap.rda5)
-ordiplot(sap.rda5, scaling = 2, type = "text")
-anova(sap.rda5, by="terms", step=1000)
-anova(sap.rda5, step=1000)
-anova(sap.rda5, by = "axis", step = 1000)
-RsquareAdj(sap.rda5)$adj.r.squared
-
-
-#model with VSURF selected variables from diversity code
-sap.rda.vsurf<-rda(sapwide~TPA_TOTAL+Winds50+ppt,data=env)
-summary(sap.rda.vsurf)
-ordiplot(sap.rda.vsurf, scaling = 2, type = "text")
-RsquareAdj(sap.rda.vsurf)$adj.r.squared
 
 
 #####MRPP comparing overstory and understory########################################################
@@ -866,3 +709,61 @@ ggplot() +
         panel.grid.major = element_blank(),  
         panel.grid.minor = element_blank(),  
         plot.background = element_blank())
+
+
+
+
+#########Extra#######
+# Updates using Mike's code from overstory ordination 
+head(sapwide)
+#sap.rda <- rda(sapwide ~ tmean+dew+actual.removed+wd.time, data=env, na.action = na.exclude)
+sap.dist <- vegdist(sapwide)
+sap.ord<-metaMDS(sapwide, distance = "bray", k=3,na.action=na.exclude)
+sap.ord
+sap.rdaall<-rda(sapwide~.,data=env,na.action="na.omit")
+#env[is.na(env)] <- 0
+efsap <- envfit(sapwide, env,na.rm=TRUE)
+efsap
+sapmod0 <- rda(sapwide~1,env,na.rm=TRUE)
+sapmod1 <- rda(sapwide~.,env,na.rm=TRUE)
+bstick(sapmod0)
+screeplot(sapmod0,bstick=TRUE,type="lines")
+summary(eigenvals(sapmod0))
+
+set.seed(123)
+mod <- ordistep(sapmod0, scope=formula(sapmod1),direction="both",na.action=na.exclude)
+anova(mod,type="t")
+anova(mod, by = "margin")
+vif.cca(mod)
+re.env <- env[c(11,27,36,24,29,4,26,38)]
+ordisurf(vare.ord ~ actual.removed, env, bubble = 1, display="species")
+text(vare.ord,display="spec",cex=1.5,col="blue")
+fit <- ordisurf(vare.ord~wdi.time,env,family=quasipoisson)
+calibrate(fit)
+
+
+names<-sapwide$sapID
+rownames(sapwide)<-names
+final.over<-filter(final.over,bapa>0)
+#join together sapling and environmental data to make sure the number of observations match
+final.over<-na.omit(final.over)
+bark<-left_join(sapwide, final.over)
+#bark[is.na(bark)] <- 0
+names<-bark$sapID #create list of sapID to set the rownames with 
+#separate the datasets back out
+sapwide<-bark[,c(1:12)]
+env<-bark[,16:69]
+names(sapwide)
+names(env)
+#add rownames
+#rownames(sapwide)<-names
+#rownames(env)<-names
+#remove sapID variable
+sapwide<-sapwide[,2:12]
+names(sapwide)
+names(env)
+head(env)
+head(sapwide)
+sapwide[is.na(sapwide)] <- 0
+head(sapwide)
+
