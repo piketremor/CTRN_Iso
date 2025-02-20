@@ -126,14 +126,13 @@ colnames(final.over)[colnames(final.over) == 'wd.time'] <- 'ws.time'
 colnames(final.over)[colnames(final.over) == 'mean.WD'] <- 'mean.WS'
 
 
-#final.over<-left_join(saplings,final.over)
 names(final.over)
 final.over$sapID<-paste0(final.over$SITEid,"-",final.over$PLOTid)
 #change from integer to numeric
 final.over$flowdir<-as.numeric(final.over$flowdir)
 names(final.over)
 head(final.over)
-#final.over<-na.omit(final.over)
+
 
 ##2018 Ordination and Data Cleaning
 
@@ -171,6 +170,8 @@ branch$X1.2.inch[is.na(branch$X1.2.inch)] <- 0
 branch$X1.inch[is.na(branch$X1.inch)] <- 0
 branch$X2.inch[is.na(branch$X2.inch)] <- 0
 
+
+head(branch)
 
 brancher <- branch%>%
   mutate(SAP_EXP = 62.5,
@@ -223,10 +224,9 @@ plot(sapordi)
 plot(sapordi,type="n")
 points(sapordi,display="sites",cex=2,pch=21,col="red", bg="yellow")
 text(sapordi,display="spec",cex=1.5,col="red")
-#womp<-select(env, c(wdi.time, Winds50,WHC,wd.time,roughness,elevation,dep,ex.k,vpdmax))
 
-#wimp<-envfit(sapwide, womp,na.rm=TRUE)
-#plot(wimp)
+
+
 speciesscores<-as.data.frame(scores(sapordi)$species)
 speciesscores$species<-rownames(speciesscores)
 head(speciesscores)
@@ -234,52 +234,38 @@ sitescores<-as.data.frame(scores(sapordi)$sites)
 sitescores$site<-rownames(sitescores)
 head(sitescores)
 
-#could add in a grouping variable (like shade tolerant/intolerant) to create a polygon grouping 
-ggplot() + 
-  geom_text(data=speciesscores,aes(x=NMDS1,y=NMDS2,label=species),size=5,vjust=0, colour="blue") +  
-  #geom_point(data=sitescores,aes(x=NMDS1,y=NMDS2),size=1) + # add the point markers
-  geom_text(data=sitescores,aes(x=NMDS1,y=NMDS2,label=site),size=3,vjust=0, color="red") +  
-  coord_equal() +
-  theme_bw()+
-  theme(axis.text.x = element_blank(),  
-        axis.text.y = element_blank(), 
-        axis.ticks = element_blank(),  
-        axis.title.x = element_text(size=18), 
-        axis.title.y = element_text(size=18), 
-        panel.background = element_blank(), 
-        panel.grid.major = element_blank(),  
-        panel.grid.minor = element_blank(),  
-        plot.background = element_blank())
-
-
-ce <- cor(sapwide,method="pearson",scores(sapordi,dis="si"))
-try.x <- (ce*sqrt(96-2)/
-            sqrt(1-ce^2))
-try.x
-dt(try.x,df=95)
+###Keep this section, code for pulling out species and site correlations with NMDS axes###
+#ce <- cor(sapwide,method="pearson",scores(sapordi,dis="si"))
+#try.x <- (ce*sqrt(96-2)/
+#            sqrt(1-ce^2))
+#try.x
+#dt(try.x,df=95)
 
 #cannot run categorical variables with correlations
-cx <- cor(re.env,method="pearson",scores(sapordi,dis="si"))
-try <- (cx*sqrt(96-2)/
-          sqrt(1-cx^2))
-try
-try.p<-dt(try,df=95)
+#cx <- cor(re.env,method="pearson",scores(sapordi,dis="si"))
+#try <- (cx*sqrt(96-2)/
+#          sqrt(1-cx^2))
+#try
+#try.p<-dt(try,df=95)
 
 ########################
 
 ## Constrained Ordination###
 #join together sapling and environmental data to make sure the number of observations match
 final.over <- filter(final.over,YEAR=="2018")
-
+unique(final.over$YEAR)
 #final.over<-na.omit(final.over)
 bark<-left_join(sapwide, final.over)
-#bark[is.na(bark)] <- 0
-names<-bark$sapID #create list of sapID to set the rownames with 
+bark[is.na(bark)] <- 0
+#removing observations that are missing THIN_METH data because can't replace NA w 0 due to factor 
+barky<-filter(bark, THIN_METH == "control" | THIN_METH == "crown" | THIN_METH == "low" | THIN_METH == "dominant")
+unique(barky$THIN_METH)
+names<-barky$sapID #create list of sapID to set the rownames with 
 
-barker <- na.omit(bark)
+
 #separate the datasets back out
-sapwide<-bark[,c(2:12)]
-env<-bark[c(16:20,21:52,54:61,63,65:69)]
+sapwide<-barky[,c(2:12)]
+env<-barky[c(16:20,21:52,54:61,63,65:69)]
 env[is.na(env)] <- 0
 
 #environmental constraints
@@ -291,26 +277,48 @@ ordiplot(sap.rda, scaling = 2, type = "text")
 RsquareAdj(sap.rda)$adj.r.squared
 
 
-#I can't replace NA values in THIN_METH with 0's because it's a factor, but I can't remove them because then the plots/sites
-#don't line up with the sapling matrix
+
 mod0 <- rda(sapwide~1,env)
 mod1 <- rda(sapwide~.,env,na.action=na.exclude)
 set.seed(123)
 mod <- ordistep(mod0, 
                 scope=formula(mod1),
                 direction="both")
-
+#wsi.time, WHC, tst, ppt,ht40,dep,ex.k,ex.mg,ws.time,RD,vpdmax
 
 
 plot(mod,add=TRUE,type="t")
 anova(mod,type="t")
 summary(mod)
 anova(mod, by = "margin")
-##significance of constraints
 anova(mod, by="term")
-two_env<-select(env, c(wdi.time, WHC, tst, ppt,Winds50,wd.time,Shannon,ht40,roughness,dew,elevation,tmin,dep,vpdmax,ex.k,tpa,THIN_METH))
+two_env<-select(env, c(wsi.time, WHC, tst, ppt,ht40,dep,ex.k,ex.mg,ws.time,RD,vpdmax))
 vif.cca(mod)
+#wsi.time vs ws.time
+test1<-rda(sapwide ~ wsi.time+WHC+tst+ppt+ht40+dep+ex.k+ex.mg+RD+vpdmax,env)
+RsquareAdj(test1)$adj.r.squared
+
+test2<-rda(sapwide ~ ws.time+WHC+tst+ppt+ht40+dep+ex.k+ex.mg+RD+vpdmax,env)
+RsquareAdj(test2)$adj.r.squared
+#wsi.time is like, slightly better
+
+#wsi.time vs tst?
+test3<-rda(sapwide ~ wsi.time+WHC+ppt+ht40+dep+ex.k+ex.mg+RD+vpdmax,env)
+RsquareAdj(test3)$adj.r.squared
+
+test4<-rda(sapwide ~ WHC+tst+ppt+ht40+dep+ex.k+ex.mg+RD+vpdmax,env)
+RsquareAdj(test4)$adj.r.squared
+
+#final variables: wsi.time, WHC, ppt, ht40, dep, ex.k, ex.mg, RD, vpdmax
+
+two_env<-select(env, c(wsi.time, WHC, ppt,ht40,dep,ex.k,ex.mg,RD,vpdmax))
 mod2<-rda(sapwide~.,two_env,na.action=na.exclude)
+RsquareAdj(mod2)$adj.r.squared
+anova(mod2,by="term")
+#vpdmax is not significant, drop?? 
+mod3<-rda(sapwide ~ wsi.time+WHC+ppt+ht40+dep+ex.k+ex.mg+RD,env)
+RsquareAdj(mod3)$adj.r.squared #worse dropping doesn't really improve R squared value
+
 vif.cca(mod2)
 summary(mod2)
 ordiplot(mod2, scaling = 2, type = "text")
@@ -318,8 +326,7 @@ ordiplot(mod2, scaling = 2, type = "none")%>%
   points("sites", pch=16)%>%
   text("species", col="red")%>%
   text(what="biplot", col="blue")
-sap.anova<-anova(mod2,by="term")
-write.csv(sap.anova,"~/Desktop/anova.sapling.csv")
+
 #species and constraint correlations with NMDS axes
 ce <- cor(sapwide,method="pearson",scores(sapordi,dis="si"))
 try.x <- (ce*sqrt(96-2)/
@@ -341,17 +348,9 @@ try.p2
 #write.csv(try, "~/Desktop/sapling_env_cor.csv")
 #write.csv(try.p2, "~/Desktop/sapling_env_pval.csv")
 
-#env<-na.omit(env)
-#there is a group of NA values. Need to figure out how to join the datasets together to maintain the corner but not the NAs
-#variable selection
-#step.forward <- ordiR2step(rda(sapwide ~ 1, data=env, na.action = na.exclude), scope=formula(sap.rda,na.action=na.exclude), R2scope = F, direction="both", pstep=1000,na.action=na.exclude)
-#anova(sap.rda, by="terms", step=10) 
-#anova(sap.rda, step=10)
-#vif.cca(mod)
-
-
 ## Premer end. 
 
+#######MRPP######
 
 trt<-env$THIN_METH
 trt<-na.omit(trt)
@@ -795,3 +794,20 @@ grid.arrange(panel.a,panel.b)
 #head(data.scores)
 
 
+##Example graphics
+#could add in a grouping variable (like shade tolerant/intolerant) to create a polygon grouping 
+ggplot() + 
+  geom_text(data=speciesscores,aes(x=NMDS1,y=NMDS2,label=species),size=5,vjust=0, colour="blue") +  
+  #geom_point(data=sitescores,aes(x=NMDS1,y=NMDS2),size=1) + # add the point markers
+  geom_text(data=sitescores,aes(x=NMDS1,y=NMDS2,label=site),size=3,vjust=0, color="red") +  
+  coord_equal() +
+  theme_bw()+
+  theme(axis.text.x = element_blank(),  
+        axis.text.y = element_blank(), 
+        axis.ticks = element_blank(),  
+        axis.title.x = element_text(size=18), 
+        axis.title.y = element_text(size=18), 
+        panel.background = element_blank(), 
+        panel.grid.major = element_blank(),  
+        panel.grid.minor = element_blank(),  
+        plot.background = element_blank())
