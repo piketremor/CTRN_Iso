@@ -184,6 +184,8 @@ model8<-lme(Shannon~roughness+tmean+dew+Winds50+wdi.time:actual.removed,
             na.action=na.omit,method="REML")
 summary(model8)
 
+final.over$ws.time <- final.over$wd
+
 model9<-lme(Shannon~tmean+dew+wd.time:actual.removed,
             data=final.over,
             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
@@ -198,15 +200,15 @@ plot(model9)
 
 #####
 require(ggeffects)
-mydf2<-ggpredict(model9, terms = c("wd.time", "actual.removed", "dew"))
-mydf3<-predict_response(model9, terms = c("wd.time", "actual.removed", "dew"))
+mydf2<-ggpredict(model9, terms = c("wd.time", "actual.removed", "tmean"))
+#mydf3<-predict_response(model9, terms = c("wd.time", "actual.removed", "dew"))
 
-ggplot(mydf3,aes(x=x,y=predicted,colour=group))+
+ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
   geom_line(aes(linetype=group,color=group),linewidth=1)+
   labs(linetype="Thinning Method")+
   labs(colour = "Thinning Method")+
   #labs(x="BA Removed (%)",y="Predicted Diversity (Hill)")+
-  ylim(0.5,1)+
+  #ylim(0.5,1)+
   #xlim(4,6)+
   facet_wrap(~facet)+
   theme_bw(18) 
@@ -228,5 +230,27 @@ plot(model10)
 
 anova(model9,model10)
 
+
+
+
 # model 9 has lower AIC and is preferred through parsimony and better R2 values, RMSE is the same. 
 performance(model9)
+
+mydf2 <- ggpredict(sap.mod2,terms=c("tst","THIN_METH","CCF"),type="zi.prob",allow.new.levels=TRUE)
+
+
+png("~/Desktop/CTRN_Sapling_diversity.png",units='in',height=5.5,width=14,res=1000)
+#theme_set(theme_bw(16))
+
+library(ggplot2)
+ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
+  geom_line(aes(linetype=group,color=group),size=1)+
+  labs(x="Time since treatment (years)",y="Probabilty of no diversity (%)")+
+  #ylim(0,55)+
+  #xlim(4,6)+
+  facet_wrap(~facet)+
+  theme_bw(18) +
+  #theme(legend.position="none")+
+  scale_color_manual(values=c('gray0','gray50','gray25',"gray75"))
+#scale_fill_manual(values=c('gray0','gray70','gray40'), name="fill")
+dev.off()

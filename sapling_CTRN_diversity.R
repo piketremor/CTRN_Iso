@@ -205,9 +205,10 @@ summary(sap.mod)
 # don't need to adjust for temporal autocorrelation according to DW test, but the variables could be beefed up
 # for the continuous data, it looks like McNab, SWI, ex.ca, ph, Thin meth, tst, qmd, over.Hill, prop.hw.avg
 
-sap.mod2 <- glmmTMB(sap.Shannon~(1|SITEid/PLOTid/CORNERid)+THIN_METH:wdi.time+over.Hill+prop.hw.avg,
+forest$wsi.time <- forest$wdi.time*-1
+sap.mod2 <- glmmTMB(sap.Shannon~(1|SITEid/PLOTid/CORNERid)+THIN_METH:wsi.time+over.Hill+prop.hw.avg,
                    data=forest,
-                   ziformula=~wdi.time+THIN_METH+CCF+tst+tmean+ht40,
+                   ziformula=~wsi.time+THIN_METH+CCF+tst+tmean+ht40,
                    family=ziGamma(link="log"),
                    na.action="na.omit") #best model? need to include autocorrelation
 summary(sap.mod2)
@@ -219,7 +220,7 @@ MuMIn::r.squaredGLMM(sap.mod2)
 mydf2 <- ggpredict(sap.mod2,terms=c("tst","THIN_METH","CCF"),type="zi.prob",allow.new.levels=TRUE)
 
 
-#png("~/Desktop/SMC_Sinuosity_Model_Output.png",units='in',height=5.5,width=14,res=1000)
+png("~/Desktop/CTRN_Sapling_diversity.png",units='in',height=5.5,width=14,res=1000)
 #theme_set(theme_bw(16))
 
 library(ggplot2)
@@ -229,10 +230,30 @@ ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
   #ylim(0,55)+
   #xlim(4,6)+
   facet_wrap(~facet)+
-  theme_bw(12) +
+  theme_bw(18) +
   #theme(legend.position="none")+
   scale_color_manual(values=c('gray0','gray50','gray25',"gray75"))
   #scale_fill_manual(values=c('gray0','gray70','gray40'), name="fill")
+dev.off()
+
+mydf3 <- ggpredict(sap.mod2,terms=c("wsi.time","THIN_METH","over.Hill"),type="count",allow.new.levels=TRUE)
+
+
+png("~/Desktop/CTRN_Sapling_Conditional.png",units='in',height=5.5,width=14,res=1000)
+#theme_set(theme_bw(16))
+
+library(ggplot2)
+ggplot(mydf3,aes(x=x,y=predicted,colour=group))+
+  geom_line(aes(linetype=group,color=group),size=1)+
+  #labs(x="Time since treatment (years)",y="Probabilty of no diversity (%)")+
+  #ylim(0,1)+
+  #xlim(4,6)+
+  facet_wrap(~facet)+
+  theme_bw(18) +
+  #theme(legend.position="none")+
+  scale_color_manual(values=c('gray0','gray50','gray25',"gray75"))
+#scale_fill_manual(values=c('gray0','gray70','gray40'), name="fill")
+dev.off()
 
 performance(sap.mod)
 performance(sap.mod2)
