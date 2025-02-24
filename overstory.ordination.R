@@ -241,11 +241,18 @@ over.rdaall<-rda(overwide~.,data=env,na.action="na.omit")
 env[is.na(env)] <- 0
 ef <- envfit(overwide, env,na.action="na.pass")
 ef
+<<<<<<< Updated upstream
 plot(ef)
+=======
+>>>>>>> Stashed changes
 mod0 <- rda(overwide~1,env)
 mod1 <- rda(overwide~.,env)
 
 
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 bstick(mod0)
 screeplot(mod0,bstick=TRUE,type="lines")
 summary(eigenvals(mod0))
@@ -261,13 +268,20 @@ summary(mod)
 #PCT,dew,ph,tst,WHC,ex.k,roughness,ex.ca,THIN_METH, actual.removed
 anova(mod,type="t")
 anova(mod, by = "margin")
+<<<<<<< Updated upstream
 
 #significance of constraints
+=======
+>>>>>>> Stashed changes
 anova(mod, by="term")
 dis<-vegdist(overwide)
 test1<-adonis2(mod,data=env,by="terms")
 vif.cca(mod)
+<<<<<<< Updated upstream
 re.env <- select(env, c(dew,ph,tst,WHC,ex.k,roughness,ex.ca,THIN_METH,actual.removed))
+=======
+re.env <- env[c(11,27,36,24,29,4,26,38)]
+>>>>>>> Stashed changes
 ordisurf(vare.ord ~ actual.removed, re.env, bubble = 1)
 text(vare.ord,display="spec",cex=1,col="blue")
 env$wdi.time<-env$wdi.time*-1
@@ -275,9 +289,13 @@ fit <- ordisurf(vare.ord~WHC,re.env,family=quasipoisson)
 calibrate(fit)
 
 RsquareAdj(mod)$adj.r.squared
+<<<<<<< Updated upstream
 summary(mod)
 final.mod<-rda(overwide~.,re.env)
 anova(final.mod, by="term")
+=======
+stressplot(mod)
+>>>>>>> Stashed changes
 #species correlations with axes and associated p values
 ce <- cor(overwide,method="pearson",scores(vare.ord,dis="si"))
 try.x <- (ce*sqrt(96-2)/
@@ -292,6 +310,10 @@ try <- (cx*sqrt(96-2)/
           sqrt(1-cx^2))
 try
 try.p<-dt(try,df=95)
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 
 
 #write.csv(cx, "~/Desktop/overstory.environmental.csv")
@@ -301,6 +323,7 @@ try.p<-dt(try,df=95)
 
 #head(sapwide)
 #sap.rda <- rda(sapwide ~ tmean+dew+actual.removed+wd.time, data=env, na.action = na.exclude)
+<<<<<<< Updated upstream
 #sap.rdaall<-rda(overwide~.,data=env,na.action="na.omit")
 
 #summary(sap.rdaall)
@@ -309,6 +332,16 @@ try.p<-dt(try,df=95)
 #step.forward <- ordiR2step(rda(overwide ~ 1, data=env), scope=formula(sap.rdaall), R2scope = F, direction="forward", pstep=1000)
 #anova(sap.rdaall, by="terms", step=1000) 
 #anova(sap.rdaall, step=1000)
+=======
+sap.rdaall<-rda(overwide~.,data=env,na.action="na.omit")
+
+summary(sap.rdaall)
+summary(sap.rdaall)
+ordiplot(sap.rdaall, scaling = 2, type = "text")
+step.forward <- ordiR2step(rda(overwide ~ 1, data=env), scope=formula(sap.rdaall), R2scope = F, direction="forward", pstep=1000)
+anova(sap.rdaall, by="terms", step=1000) 
+anova(sap.rdaall, step=1000)
+>>>>>>> Stashed changes
 
 
 #names(env)
@@ -327,8 +360,13 @@ anova(en,by="term")
 gof<-goodness(sapordi)
 plot(en)
 trt<-env$THIN_METH
+<<<<<<< Updated upstream
 data.scores<-as.data.frame(scores(mod)$species) 
 data.scores$site <-as.data.frame(scores(mod)$sites)
+=======
+data.scores<-as.data.frame(scores(sapordi)$species) 
+data.scores$site <-as.data.frame(scores(sapordi)$sites)
+>>>>>>> Stashed changes
 data.scores$THIN_METH = trt
 ggplot(data=data.scores) + 
   stat_ellipse(aes(x=RDA1,y=RDA2,colour=THIN_METH),level = 0.50) +
@@ -338,7 +376,11 @@ ggplot(data=data.scores) +
   
 adon.results<-adonis2(sapwide ~ trt, method="bray",perm=999)
 print(adon.results)
+<<<<<<< Updated upstream
 
+=======
+dis <- vegdist(overwide)
+>>>>>>> Stashed changes
 
 slice <- left_join(over.ID,slice,by="uid")
 slice$tst <- as.numeric(slice$tst)
@@ -366,8 +408,11 @@ mod
 
 test<-mrpp(dat=dis, grouping=trt, permutations=999)
 
+<<<<<<< Updated upstream
 #adonis (PERMANOVA) test
 
+=======
+>>>>>>> Stashed changes
 test
 centroids<-data.frame(grps=rownames(mod$centroids),data.frame(mod$centroids))
 vectors<-data.frame(group=mod$group,data.frame(mod$vectors))

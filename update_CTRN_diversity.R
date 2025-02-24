@@ -214,7 +214,7 @@ ggplot(mydf3,aes(x=x,y=predicted,colour=group))+
 
 
 
-#PCT increases AIC slightly and has higher RMSE and lower R2
+
 model10<-lme(Shannon~tmean+dew+wd.time:actual.removed+PCT,
             data=final.over,
             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
