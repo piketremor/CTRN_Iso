@@ -100,6 +100,18 @@ act <- actual.rem[c(1,2,6)]
 final.over <- left_join(cleaned.over,act)
 final.over$wdi.time <- final.over$wd.time-final.over$SWC2
 
+#converting WD variables to WS variables
+final.over$wdi.time<-final.over$wdi.time * -1
+final.over$mean.WD<-final.over$mean.WD * -1
+final.over$wd.time<-final.over$wd.time * -1
+
+#renaming the WD variables accordingly 
+
+colnames(final.over)[colnames(final.over) == 'wdi.time'] <- 'wsi.time'
+colnames(final.over)[colnames(final.over) == 'wd.time'] <- 'ws.time'
+colnames(final.over)[colnames(final.over) == 'mean.WD'] <- 'mean.WS'
+
+
 ###############understory time###########################
 saplings <- read.csv("Saplings.csv")
 
@@ -188,9 +200,9 @@ forest$bapa[is.na(forest$bapa)]<-0
 forest<-filter(forest, bapa>0)
 forest$actual.removed[is.na(forest$actual.removed)]<-0
 
-sap.mod <- glmmTMB(sap.Shannon~(1|SITEid/PLOTid/CORNERid)+THIN_METH:wdi.time,
+sap.mod <- glmmTMB(sap.Shannon~(1|SITEid/PLOTid/CORNERid)+THIN_METH:wsi.time,
                    data=forest,
-                   ziformula=~wdi.time+THIN_METH+CCF+tst+tmean+ht40,
+                   ziformula=~wsi.time+THIN_METH+CCF+tst+tmean+ht40,
                    family=ziGamma(link="log"),
                    na.action="na.omit") #best model? need to include autocorrelation
 
@@ -205,7 +217,9 @@ summary(sap.mod)
 # don't need to adjust for temporal autocorrelation according to DW test, but the variables could be beefed up
 # for the continuous data, it looks like McNab, SWI, ex.ca, ph, Thin meth, tst, qmd, over.Hill, prop.hw.avg
 
-forest$wsi.time <- forest$wdi.time*-1
+#scale wsi up to meters?
+forest$wsi.time<-forest$wsi.time/1000
+
 sap.mod2 <- glmmTMB(sap.Shannon~(1|SITEid/PLOTid/CORNERid)+THIN_METH:wsi.time+over.Hill+prop.hw.avg,
                    data=forest,
                    ziformula=~wsi.time+THIN_METH+CCF+tst+tmean+ht40,
@@ -214,6 +228,23 @@ sap.mod2 <- glmmTMB(sap.Shannon~(1|SITEid/PLOTid/CORNERid)+THIN_METH:wsi.time+ov
 summary(sap.mod2)
 plot(sap.mod2)
 performance(sap.mod2)
+
+#compare models with and without tst and wss.time
+mod3<-glmmTMB(sap.Shannon~(1|SITEid/PLOTid/CORNERid)+THIN_METH:wsi.time+over.Hill+prop.hw.avg,
+              data=forest,
+              ziformula=~THIN_METH+CCF+tst+tmean+ht40,
+              family=ziGamma(link="log"),
+              na.action="na.omit")
+performance(mod3)
+summary(mod3)
+
+mod4<-glmmTMB(sap.Shannon~(1|SITEid/PLOTid/CORNERid)+THIN_METH:wsi.time+over.Hill+prop.hw.avg,
+              data=forest,
+              ziformula=~THIN_METH+CCF+wsi.time+tmean+ht40,
+              family=ziGamma(link="log"),
+              na.action="na.omit")
+summary(mod4)
+performance(mod4)
 
 MuMIn::r.squaredGLMM(sap.mod2)
 
