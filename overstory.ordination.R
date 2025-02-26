@@ -90,22 +90,6 @@ over.ord$stress
 #sitescores$site<-rownames(sitescores)
 #head(sitescores)
 
-#could add in a grouping variable (like shade tolerant/intolerant) to create a polygon grouping 
-ggplot() + 
-  geom_text(data=speciesscores,aes(x=NMDS1,y=NMDS2,label=species),size=5,vjust=0, colour="blue") +  
-  #geom_point(data=sitescores,aes(x=NMDS1,y=NMDS2),size=1) + # add the point markers
-  geom_text(data=sitescores,aes(x=NMDS1,y=NMDS2,label=site),size=3,vjust=0, color="red") +  
-  coord_equal() +
-  theme_bw()+
-  theme(axis.text.x = element_blank(),  
-        axis.text.y = element_blank(), 
-        axis.ticks = element_blank(),  
-        axis.title.x = element_text(size=18), 
-        axis.title.y = element_text(size=18), 
-        panel.background = element_blank(), 
-        panel.grid.major = element_blank(),  
-        panel.grid.minor = element_blank(),  
-        plot.background = element_blank())
 
 ################RDA (add in environmental constraints)#########################
 trees <- read.csv("Trees2023.csv")
@@ -241,18 +225,16 @@ over.rdaall<-rda(overwide~.,data=env,na.action="na.omit")
 env[is.na(env)] <- 0
 ef <- envfit(overwide, env,na.action="na.pass")
 ef
-<<<<<<< Updated upstream
+
 plot(ef)
-=======
->>>>>>> Stashed changes
+
 mod0 <- rda(overwide~1,env)
 mod1 <- rda(overwide~.,env)
 
 
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
+
+
 bstick(mod0)
 screeplot(mod0,bstick=TRUE,type="lines")
 summary(eigenvals(mod0))
@@ -268,151 +250,77 @@ summary(mod)
 #PCT,dew,ph,tst,WHC,ex.k,roughness,ex.ca,THIN_METH, actual.removed
 anova(mod,type="t")
 anova(mod, by = "margin")
-<<<<<<< Updated upstream
+
 
 #significance of constraints
-=======
->>>>>>> Stashed changes
+
 anova(mod, by="term")
 dis<-vegdist(overwide)
 test1<-adonis2(mod,data=env,by="terms")
 vif.cca(mod)
-<<<<<<< Updated upstream
-re.env <- select(env, c(dew,ph,tst,WHC,ex.k,roughness,ex.ca,THIN_METH,actual.removed))
-=======
-re.env <- env[c(11,27,36,24,29,4,26,38)]
->>>>>>> Stashed changes
-ordisurf(vare.ord ~ actual.removed, re.env, bubble = 1)
-text(vare.ord,display="spec",cex=1,col="blue")
-env$wdi.time<-env$wdi.time*-1
-fit <- ordisurf(vare.ord~WHC,re.env,family=quasipoisson)
-calibrate(fit)
+
+re.env <- select(env, c(PCT,dew,ph,tst,WHC,ex.k,roughness,ex.ca,THIN_METH,actual.removed))
+
+
 
 RsquareAdj(mod)$adj.r.squared
-<<<<<<< Updated upstream
 summary(mod)
 final.mod<-rda(overwide~.,re.env)
 anova(final.mod, by="term")
-=======
+
 stressplot(mod)
->>>>>>> Stashed changes
+
+
+set.seed(123)
+forest<-metaMDS(overwide, distance = "bray",k=3)
+plot(forest,type="n")
+points(forest,display="sites",cex=2,pch=21,col="red", bg="yellow")
+text(forest,display="spec",cex=1.5,col="red")
+ordisurf(forest, re.env$roughness, add=TRUE,family = quasipoisson)
+foresten<-envfit(forest, re.env[,c(1:6,8:10)], add=TRUE, na.rm = TRUE)
+plot(foresten)
+
+
+#3D plot of overstory ordination
+ordiplot3d(forest)
+text(forest, display="spec",cex=1.5,col="red")
+plot(foresten)
+
 #species correlations with axes and associated p values
-ce <- cor(overwide,method="pearson",scores(vare.ord,dis="si"))
+ce <- cor(overwide,method="pearson",scores(forest,dis="si"))
 try.x <- (ce*sqrt(96-2)/
             sqrt(1-ce^2))
 try.x
-dt(try.x,df=95)
+dit<-dt(try.x,df=95)
+
+write.csv(try.x, "~/Desktop/updatedoverstorycorrelations.csv")
+write.csv(dit, "~/Desktop/updatedoverstorypvalues.csv")
 
 
-#cannot run categorical variables with correlations
-cx <- cor(re.env,method="pearson",scores(vare.ord,dis="si"))
+#cannot run categorical variables with correlations must remove THIN_METH and PCT
+env2<-select(re.env, -c(PCT,THIN_METH))
+head(env2)
+cx <- cor(env2,method="pearson",scores(forest,dis="si"))
 try <- (cx*sqrt(96-2)/
           sqrt(1-cx^2))
 try
 try.p<-dt(try,df=95)
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
-
-
-#write.csv(cx, "~/Desktop/overstory.environmental.csv")
-#write.csv(try.p,"~/Desktop/overstory.pval.csv")
+write.csv(cx, "~/Desktop/updatedoverstoryenvironmental.csv")
+write.csv(try.p,"~/Desktop/updateoverstory.pval.csv")
 
 ## Premer end. 12/6/2024
 
-#head(sapwide)
-#sap.rda <- rda(sapwide ~ tmean+dew+actual.removed+wd.time, data=env, na.action = na.exclude)
-<<<<<<< Updated upstream
-#sap.rdaall<-rda(overwide~.,data=env,na.action="na.omit")
-
-#summary(sap.rdaall)
-#summary(sap.rdaall)
-#ordiplot(sap.rdaall, scaling = 2, type = "text")
-#step.forward <- ordiR2step(rda(overwide ~ 1, data=env), scope=formula(sap.rdaall), R2scope = F, direction="forward", pstep=1000)
-#anova(sap.rdaall, by="terms", step=1000) 
-#anova(sap.rdaall, step=1000)
-=======
-sap.rdaall<-rda(overwide~.,data=env,na.action="na.omit")
-
-summary(sap.rdaall)
-summary(sap.rdaall)
-ordiplot(sap.rdaall, scaling = 2, type = "text")
-step.forward <- ordiR2step(rda(overwide ~ 1, data=env), scope=formula(sap.rdaall), R2scope = F, direction="forward", pstep=1000)
-anova(sap.rdaall, by="terms", step=1000) 
-anova(sap.rdaall, step=1000)
->>>>>>> Stashed changes
-
-
-#names(env)
-
-
-env<-select(env, c(PCT, dew, ph,tst,WHC,ex.k, THIN_METH))
-sapordi<-metaMDS(overwide, distance = "bray")
-en<-envfit(overwide, env, na.action="na.pass")
-summary(sapordi)
-sapordi
-plot(sapordi)
-stressplot(sapordi)
-anova(en,by="term")
-
-#plotting with the ellipses grouped by thinning method
-gof<-goodness(sapordi)
-plot(en)
-trt<-env$THIN_METH
-<<<<<<< Updated upstream
-data.scores<-as.data.frame(scores(mod)$species) 
-data.scores$site <-as.data.frame(scores(mod)$sites)
-=======
-data.scores<-as.data.frame(scores(sapordi)$species) 
-data.scores$site <-as.data.frame(scores(sapordi)$sites)
->>>>>>> Stashed changes
-data.scores$THIN_METH = trt
-ggplot(data=data.scores) + 
-  stat_ellipse(aes(x=RDA1,y=RDA2,colour=THIN_METH),level = 0.50) +
-  geom_point(aes(x=RDA1,y=RDA2,colour=THIN_METH),size=4) + 
-  theme_classic()+
-  labs(color="Thinning Method")
-  
-adon.results<-adonis2(sapwide ~ trt, method="bray",perm=999)
-print(adon.results)
-<<<<<<< Updated upstream
-
-=======
-dis <- vegdist(overwide)
->>>>>>> Stashed changes
-
-slice <- left_join(over.ID,slice,by="uid")
-slice$tst <- as.numeric(slice$tst)
-slice$age <- as.numeric(slice$age)
-slice.ff <- slice[order(slice$uid),]
-ff.all <- slice.ff[,c(2:17)]
-ff.env <- slice.ff[,c(2:15,18,19)]
-
-
-
-
-
-
-
-
-
-
-
-
 
 #mulitvariate dispersion grouped by thinning method
+trt<-env$THIN_METH
 dis <- vegdist(overwide)
 mod <- betadisper(dis, trt)
 mod
 
 test<-mrpp(dat=dis, grouping=trt, permutations=999)
 
-<<<<<<< Updated upstream
-#adonis (PERMANOVA) test
 
-=======
->>>>>>> Stashed changes
 test
 centroids<-data.frame(grps=rownames(mod$centroids),data.frame(mod$centroids))
 vectors<-data.frame(group=mod$group,data.frame(mod$vectors))
@@ -525,7 +433,7 @@ panel.e<-ggplot() +
   theme_classic() + 
   theme(legend.position="none")
 
-grid.arrange(panel.a,panel.b,panel.c,panel.d, panel.e, nrow=2)
+grid.arrange(panel.a,panel.b,panel.c,panel.d, nrow=2)
 #more graphing
 data.scores = as.data.frame(scores(mod)$sites)
 data.scores$THIN_METH = env$THIN_METH
@@ -595,3 +503,47 @@ ggplot() +
         panel.grid.major = element_blank(),  #remove major-grid labels
         panel.grid.minor = element_blank(),  #remove minor-grid labels
         plot.background = element_blank())
+
+
+##extra graphing code
+#plotting with the ellipses grouped by thinning method
+gof<-goodness(sapordi)
+plot(en)
+trt<-env$THIN_METH
+data.scores<-as.data.frame(scores(mod)$species) 
+data.scores$site <-as.data.frame(scores(mod)$sites)
+data.scores<-as.data.frame(scores(sapordi)$species) 
+data.scores$site <-as.data.frame(scores(sapordi)$sites)
+data.scores$THIN_METH = trt
+ggplot(data=data.scores) + 
+  stat_ellipse(aes(x=RDA1,y=RDA2,colour=THIN_METH),level = 0.50) +
+  geom_point(aes(x=RDA1,y=RDA2,colour=THIN_METH),size=4) + 
+  theme_classic()+
+  labs(color="Thinning Method")
+
+#could add in a grouping variable (like shade tolerant/intolerant) to create a polygon grouping 
+ggplot() + 
+  geom_text(data=speciesscores,aes(x=NMDS1,y=NMDS2,label=species),size=5,vjust=0, colour="blue") +  
+  #geom_point(data=sitescores,aes(x=NMDS1,y=NMDS2),size=1) + # add the point markers
+  geom_text(data=sitescores,aes(x=NMDS1,y=NMDS2,label=site),size=3,vjust=0, color="red") +  
+  coord_equal() +
+  theme_bw()+
+  theme(axis.text.x = element_blank(),  
+        axis.text.y = element_blank(), 
+        axis.ticks = element_blank(),  
+        axis.title.x = element_text(size=18), 
+        axis.title.y = element_text(size=18), 
+        panel.background = element_blank(), 
+        panel.grid.major = element_blank(),  
+        panel.grid.minor = element_blank(),  
+        plot.background = element_blank())
+
+adon.results<-adonis2(sapwide ~ trt, method="bray",perm=999)
+print(adon.results)
+
+slice <- left_join(over.ID,slice,by="uid")
+slice$tst <- as.numeric(slice$tst)
+slice$age <- as.numeric(slice$age)
+slice.ff <- slice[order(slice$uid),]
+ff.all <- slice.ff[,c(2:17)]
+ff.env <- slice.ff[,c(2:15,18,19)]

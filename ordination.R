@@ -214,7 +214,7 @@ head(sapwide)
 rowSums(sapwide[2:12])
 
 #NMDS
-setseeed(123)
+set.seed(123)
 sapordi<-metaMDS(sapwide[,2:12], distance = "bray",k=3)
 stressplot(sapordi)
 sapordi
@@ -226,14 +226,6 @@ plot(sapordi,type="n")
 points(sapordi,display="sites",cex=2,pch=21,col="red", bg="yellow")
 text(sapordi,display="spec",cex=1.5,col="red")
 
-
-
-speciesscores<-as.data.frame(scores(sapordi)$species)
-speciesscores$species<-rownames(speciesscores)
-head(speciesscores)
-sitescores<-as.data.frame(scores(sapordi)$sites)
-sitescores$site<-rownames(sitescores)
-head(sitescores)
 
 ###Keep this section, code for pulling out species and site correlations with NMDS axes###
 #ce <- cor(sapwide,method="pearson",scores(sapordi,dis="si"))
@@ -326,27 +318,48 @@ ordiplot(mod2, scaling = 2, type = "none")%>%
   points("sites", pch=16)%>%
   text("species", col="red")%>%
   text(what="biplot", col="blue")
+set.seed(123)
+sappy<-metaMDS(sapwide, distance = "bray",k=3)
+plot(sappy,type="n")
+points(sappy,display="sites",cex=2,pch=21,col="red", bg="yellow")
+text(sappy,display="spec",cex=1.5,col="red")
+ordisurf(sappy, two_env$wsi.time, add = TRUE, family = quasipoisson)
+en<-envfit(sappy, two_env[,2:9], add=TRUE)
+plot(en)
+
+
+text(sappy,display="spec",cex=1.5,col="red")
+points(sappy,display="sites",cex=2,pch=21,col="red", bg="yellow")
+en<-envfit(sappy, two_env, add=TRUE)
+plot(en)
+
+#3D plot of sapling NMDS
+ordiplot3d(sappy)
+text(sappy, display="spec",cex=1.5,col="red")
+plot(en)
+
+
 
 #species and constraint correlations with NMDS axes
-ce <- cor(sapwide,method="pearson",scores(sapordi,dis="si"))
+ce <- cor(sapwide,method="pearson",scores(sappy,dis="si"))
 try.x <- (ce*sqrt(96-2)/
             sqrt(1-ce^2))
 try.x
 try.p<-dt(try.x,df=95)
 
-#write.csv(try.x, "~/Desktop/sapling_species_correlations.csv")
-#write.csv(try.p, "~/Desktop/sapling_species_pval.csv")
+#write.csv(try.x, "~/Desktop/updatedsapling_species_correlations.csv")
+#write.csv(try.p, "~/Desktop/updatedsapling_species_pval.csv")
 
 #cannot run categorical variables with correlations
-cx <- cor(two_env,method="pearson",scores(sapordi,dis="si"))
+cx <- cor(two_env,method="pearson",scores(sappy,dis="si"))
 try <- (cx*sqrt(96-2)/
           sqrt(1-cx^2))
 try
 try.p2<-dt(try,df=95)
 try.p2
 
-#write.csv(try, "~/Desktop/sapling_env_cor.csv")
-#write.csv(try.p2, "~/Desktop/sapling_env_pval.csv")
+#write.csv(try, "~/Desktop/updatedsapling_env_cor.csv")
+#write.csv(try.p2, "~/Desktop/updatedsapling_env_pval.csv")
 
 ## Premer end. 
 
@@ -473,7 +486,7 @@ panel.e<-ggplot() +
   theme_classic() + 
   theme(legend.position="none")
 
-grid.arrange(panel.a,panel.b,panel.c,panel.d, panel.e, nrow=2)
+grid.arrange(panel.a,panel.b,panel.c,panel.d, nrow=2)
 
 
 
@@ -508,7 +521,7 @@ saplings.df <- left_join(templ,saplings18)
 
 
 #filter for species >5%
-branch <-filter(saplings.df, SPP =="PB"|SPP == "OT"|SPP=="NC"|SPP=="RM"|SPP=="RS"|SPP=="WP"|SPP=="BF"|SPP=="YB"|SPP=="EH"|SPP=="QA"|SPP=="BC")
+branch <-filter(saplings.df, SPP =="PB"|SPP == "OT"|SPP=="WC"|SPP=="RM"|SPP=="RS"|SPP=="WP"|SPP=="BF"|SPP=="YB"|SPP=="EH"|SPP=="QA"|SPP=="BC")
 
 unique(branch$SPP)
 
