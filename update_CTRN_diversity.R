@@ -184,9 +184,10 @@ model8<-lme(Shannon~roughness+tmean+dew+Winds50+wdi.time:actual.removed,
             na.action=na.omit,method="REML")
 summary(model8)
 
-final.over$ws.time <- final.over$wd
+#try rescaling wsi.time (mm - cm)
+final.over$wsi.time<-final.over$wsi.time/100
 
-model9<-lme(Shannon~tmean+dew+wd.time:actual.removed,
+model9<-lme(Shannon~tmean+dew+wsi.time:actual.removed,
             data=final.over,
             correlation=corAR1(form=~YEAR|SITEid/PLOTid),
             random=~1|SITEid,
