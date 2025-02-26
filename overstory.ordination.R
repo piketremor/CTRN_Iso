@@ -280,6 +280,7 @@ ordisurf(forest, re.env$roughness, add=TRUE,family = quasipoisson)
 foresten<-envfit(forest, re.env[,c(1:6,8:10)], add=TRUE, na.rm = TRUE)
 plot(foresten)
 
+forest
 
 #3D plot of overstory ordination
 ordiplot3d(forest)
