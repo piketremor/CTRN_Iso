@@ -338,7 +338,7 @@ ordiplot3d(sappy)
 text(sappy, display="spec",cex=1.5,col="red")
 plot(en)
 
-
+sappy
 
 #species and constraint correlations with NMDS axes
 ce <- cor(sapwide,method="pearson",scores(sappy,dis="si"))
@@ -503,6 +503,7 @@ saplings <- filter(saplings, SITEid == "AS" | SITEid == "DR" | SITEid == "GR" | 
 saplings[saplings == "SpecAld"]<-"SA"
 saplings[saplings == "HM"]<-"EH"
 saplings[saplings == "CH"]<-"BC"
+saplings[saplings == "NC"]<-"WC"
 
 
 #Filter for just year 2018
@@ -570,9 +571,9 @@ head(sapwide)
 rowSums(sapwide[2:12])
 names<-sapwide$sapID
 rownames(sapwide)<-names
-new<-data.frame(sapID=sapwide$sapID,BC=sapwide$BC,BF=sapwide$BF,EH=sapwide$EH,NC=sapwide$NC,OT=sapwide$OT,PB=sapwide$PB,
+new<-data.frame(sapID=sapwide$sapID,BC=sapwide$BC,BF=sapwide$BF,EH=sapwide$EH,WC=sapwide$WC,OT=sapwide$OT,PB=sapwide$PB,
                QA=sapwide$QA,RM=sapwide$RM,RS=sapwide$RS,WP=sapwide$WP,YB=sapwide$YB,BS="0",GB="0",PC="0",
-               RP="0",ST="0",WA="0",WC="0",WS="0",cover="UN")
+               RP="0",ST="0",WA="0",WS="0",cover="UN")
 
 #now grab the overstory
 trees <- read.csv("Trees2023.csv")
@@ -618,13 +619,12 @@ rownames(overwide)<-names
 rowSums(overwide[2:17])
 overwide$cover<-"overstory"
 overwide$BC<-"0"
-overwide$NC<-"0"
 overwide$OT<-"0"
 #bring together? i think that worked
 allin<-rbind(overwide, new)
 
 #seperate out into sp and env groups
-sp<-allin[,c(1:17,19:21)]
+sp<-allin[,c(1:17,19:20)]
 env<-allin[,c(1,18)]
 sp$BS<-as.numeric(sp$BS)
 sp$GB<-as.numeric(sp$GB)
@@ -635,11 +635,10 @@ sp$WA<-as.numeric(sp$WA)
 sp$WC<-as.numeric(sp$WC)
 sp$WS<-as.numeric(sp$WS)
 sp$BC<-as.numeric(sp$BC)
-sp$NC<-as.numeric(sp$NC)
 sp$OT<-as.numeric(sp$OT)
 summary(sp)
 #do the test
-dis <- vegdist(sp[,2:20])
+dis <- vegdist(sp[,2:19])
 mod <- betadisper(dis,env$cover)
 mod
 test<-mrpp(dat=dis, grouping=env$cover, permutations=999)
