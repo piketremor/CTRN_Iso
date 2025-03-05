@@ -120,10 +120,13 @@ saplings[saplings == "SpecAld"]<-"SA"
 saplings[saplings == "HM"]<-"EH"
 saplings[saplings == "CH"]<-"BC"
 saplings[saplings == "OT (red oak)"] <- "RO"
+saplings[saplings == "NC"]<-"WC"
+saplings[saplings == "NRO"]<-"RO"
 saplings$X1.2.inch[is.na(saplings$X1.2.inch)] <- 0
 saplings$X1.inch[is.na(saplings$X1.inch)] <- 0
 saplings$X2.inch[is.na(saplings$X2.inch)] <- 0
 saplings<-filter(saplings, SPP!="NONE")
+saplings<-filter(saplings, SPP!="NON")
 #diversity 
 saplings$spec.count <- (saplings$X1.2.inch+saplings$X1.inch+saplings$X2.inch)
 sap.sum <- saplings%>%
