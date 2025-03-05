@@ -677,6 +677,19 @@ panel.b<-ggplot() +
   theme(legend.position="none")
 grid.arrange(panel.a,panel.b)
 
+panel.e<-ggplot() + 
+  geom_polygon(data=all.hull[all.hull=="overstory",],aes(x=v.PCoA1,y=v.PCoA2),colour="blue",alpha=0,linetype="dashed") +
+  geom_polygon(data=all.hull[all.hull=="UN",],aes(x=v.PCoA1,y=v.PCoA2),colour="orange",alpha=0,linetype="dashed") +
+  geom_segment(data=seg.data,aes(x=v.PCoA1,xend=PCoA1,y=v.PCoA2,yend=PCoA2),alpha=0.30) + 
+  geom_point(data=centroids[,1:3], aes(x=PCoA1,y=PCoA2,shape=grps),size=4,colour="red") + 
+  geom_point(data=seg.data[seg.data$group %in% "overstory",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=16,colour="blue") +
+  geom_point(data=seg.data[seg.data$group %in% "UN",], aes(x=v.PCoA1,y=v.PCoA2),size=2,shape=17,colour="orange") +
+  labs(x="",y="") +
+  coord_cartesian(xlim = c(-0.7,0.7), ylim = c(-0.7,0.7)) +
+  theme_classic() + 
+  theme(legend.position="none")
+panel.e
+
 #calculate which species are below 5%
 #sapwide <- dcast(saplings18,sapID~SPP, value.var = "X1.2.inch")
 
