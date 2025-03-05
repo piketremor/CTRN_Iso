@@ -26,7 +26,7 @@ merch.ws<-Kozak_merchR(barkna) #original
 #Kozak function with parameters for white spruce
 
 KozakmerchWS<-function (x, log.breaks = c(2, 5, 7, 8, 12, 51), log.grades = c("junk", 
-                                                                               "pulp", "cns", "ssl", "lsl", "psl"), display.stems = FALSE) 
+                                                                              "pulp", "cns", "ssl", "lsl", "psl"), display.stems = FALSE) 
 {
   if (!is.data.frame(x)) {
     stop("x needs to be a data.frame")
