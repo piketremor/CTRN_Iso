@@ -259,7 +259,7 @@ dis<-vegdist(overwide)
 test1<-adonis2(mod,data=env,by="terms")
 vif.cca(mod)
 
-re.env <- select(env, c(PCT,dew,ph,tst,WHC,ex.k,roughness,ex.ca,THIN_METH,actual.removed))
+re.env <- select(env, c(dew,tst,WHC,roughness))
 
 
 
@@ -277,7 +277,7 @@ plot(forest,type="n")
 points(forest,display="sites",cex=2,pch=21,col="red", bg="yellow")
 text(forest,display="spec",cex=1.5,col="red")
 ordisurf(forest, re.env$roughness, add=TRUE,family = quasipoisson)
-foresten<-envfit(forest, re.env[,c(1:6,8:10)], add=TRUE, na.rm = TRUE)
+foresten<-envfit(forest, re.env[,c(1:3)], add=TRUE, na.rm = TRUE)
 plot(foresten)
 
 forest

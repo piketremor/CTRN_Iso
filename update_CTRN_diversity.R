@@ -254,4 +254,30 @@ ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
   #theme(legend.position="none")+
   scale_color_manual(values=c('gray0','gray50','gray25',"gray75"))
 #scale_fill_manual(values=c('gray0','gray70','gray40'), name="fill")
+
+#######
+full.m1 <- lm(Shannon~wsi.time*actual.removed, data=final.over) #LAI was significant prior to additional of structural and density attributes
+
+library(ggplot2)
+library(ggeffects)
+mydf2 <- ggpredict(full.m1,terms=c("wsi.time","actual.removed"))
+
+#png("~/Desktop/SMC_Sinuosity_Model_Output.png",units='in',height=5.5,width=14,res=1000)
+#theme_set(theme_bw(16))
+
+library(ggplot2)
+output<-ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
+  geom_line(aes(linetype=group,color=group),size=1)+
+  #labs(x="Tree height (m)",y="Probabilty of sinuosity (%)")+
+  #ylim(0,55)+
+  #xlim(4,6)+
+  facet_wrap(~group)+
+  theme_bw(18)
+#theme(legend.position="none")
+#scale_y_continuous(trans="sq")
+#scale_color_manual(values=c('gray0','gray70','gray40'))+
+#scale_fill_manual(values=c('gray0','gray70','gray40'), name="fill")
+output
+png("~/Desktop/interactions.png",units='in',height=5.5,width=14,res=1000)
+output
 dev.off()

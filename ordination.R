@@ -126,7 +126,7 @@ colnames(final.over)[colnames(final.over) == 'wd.time'] <- 'ws.time'
 colnames(final.over)[colnames(final.over) == 'mean.WD'] <- 'mean.WS'
 
 
-names(final.over)
+sunames(final.over)
 final.over$sapID<-paste0(final.over$SITEid,"-",final.over$PLOTid)
 #change from integer to numeric
 final.over$flowdir<-as.numeric(final.over$flowdir)
@@ -200,8 +200,40 @@ branches <- branched%>%
   mutate(prop_tpa = (SAP_TPA/SAP_TPA_total),
          prop_ba = (SAPBA/SAPBA_total),
          iv = ((prop_tpa + prop_ba)/2))
+#run linear model with IV from RM and BF
+Red<-filter(branches,SPP=="RM")%>%
+  left_join(.,final.over)
+BF<-filter(branches,SPP=="BF")%>%
+  left_join(.,final.over)
 
-
+RMsub<-regsubsets(iv~prop.rs.avg+prop.hw.avg+prop.ab.avg+prop.eh.avg+prop.bf.avg+prop.ws.avg+prop.bs.avg+tpi+
+          roughness+slope+aspect+flowdir+tmin+over.Hill+ht40+elevation+tri+tmean+tmax+dew+vpdmax+vpdmin+McNab+Bolstad+
+          Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+THIN_METH+mean.WS+
+          tst+ws.time+actual.removed+wsi.time,really.big=TRUE,data = Red,method="exhaustive")
+summary(RMsub)
+rmod1<-lm(iv~tst+Densic+actual.removed,data=Red)
+summary(rmod1)
+rmod2<-lm(iv~tst+actual.removed,data=Red)
+summary(rmod2)
+plot(rmod2)
+rmod3<-lm(iv~prop.eh.avg+slope+flowdir+tri+tmax+Densic+ex.mg+tst+actual.removed,data=Red)
+summary(rmod3)
+rmod4<-lm(iv~tst,data=Red)
+summary(rmod4)
+BFsub<-regsubsets(iv~prop.rs.avg+prop.hw.avg+prop.ab.avg+prop.eh.avg+prop.bf.avg+prop.ws.avg+prop.bs.avg+tpi+
+                    roughness+slope+aspect+flowdir+tmin+over.Hill+ht40+elevation+tri+tmean+tmax+dew+vpdmax+vpdmin+McNab+Bolstad+
+                    Profile+Planform+Winds10+Winds50+SWI+RAD+ppt+WHC+ex.mg+ex.ca+ph+dep+ex.k+nit+SWC2+PCT+THIN_METH+mean.WS+
+                    tst+ws.time+actual.removed+wsi.time,really.big=TRUE,data = BF,method="exhaustive")
+summary(BFsub)
+bfmod1<-lm(iv~WHC,data=BF)
+summary(bfmod1)
+bfmod2<-lm(iv~prop.ws.avg+roughness+ht40+vpdmin+McNab+Winds50+ppt+WHC+mean.WS,data=BF)
+summary(bfmod2)
+bfmod2<-lm(iv~prop.ws.avg+McNab+Winds50+ppt+WHC+mean.WS,data=BF)
+summary(bfmod2)
+bfmod3<-lm(iv~prop.ws.avg+McNab+Winds50+mean.WS,data=BF)
+summary(bfmod3)
+check_collinearity(bfmod3)
 #create site-plot identifier
 branches$sapID<-paste0(branches$SITEid,"-",branches$PLOTid)
 
@@ -284,7 +316,7 @@ anova(mod,type="t")
 summary(mod)
 anova(mod, by = "margin")
 anova(mod, by="term")
-two_env<-select(env, c(wsi.time, WHC, tst, ppt,ht40,dep,ex.k,ex.mg,ws.time,RD,vpdmax))
+two_env<-select(env, c(wsi.time, WHC, tst, ht40,dep,ex.k,ex.mg,ws.time,RD,vpdmax))
 vif.cca(mod)
 #wsi.time vs ws.time
 test1<-rda(sapwide ~ wsi.time+WHC+tst+ppt+ht40+dep+ex.k+ex.mg+RD+vpdmax,env)
@@ -304,6 +336,7 @@ RsquareAdj(test4)$adj.r.squared
 #final variables: wsi.time, WHC, ppt, ht40, dep, ex.k, ex.mg, RD, vpdmax
 
 two_env<-select(env, c(wsi.time, WHC, ppt,ht40,dep,ex.k,ex.mg,RD,vpdmax))
+two_env$HT100<-env$ht40*0.3
 mod2<-rda(sapwide~.,two_env,na.action=na.exclude)
 RsquareAdj(mod2)$adj.r.squared
 anova(mod2,by="term")
@@ -324,7 +357,7 @@ plot(sappy,type="n")
 points(sappy,display="sites",cex=2,pch=21,col="red", bg="yellow")
 text(sappy,display="spec",cex=1.5,col="red")
 ordisurf(sappy, two_env$wsi.time, add = TRUE, family = quasipoisson)
-en<-envfit(sappy, two_env[,2:9], add=TRUE)
+en<-envfit(sappy, two_env[,c(2:3,5:10)], add=TRUE)
 plot(en)
 
 
