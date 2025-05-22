@@ -353,13 +353,14 @@ ordiplot(mod2, scaling = 2, type = "none")%>%
   text(what="biplot", col="blue")
 set.seed(123)
 sappy<-metaMDS(sapwide, distance = "bray",k=3)
+png("~/Desktop/overstoryord.png",units='in',height=5.5,width=7,res=1000)
 plot(sappy,type="n")
 points(sappy,display="sites",cex=2,pch=21,col="red", bg="yellow")
 text(sappy,display="spec",cex=1.5,col="red")
 ordisurf(sappy, two_env$wsi.time, add = TRUE, family = quasipoisson)
 en<-envfit(sappy, two_env[,c(2:3,5:10)], add=TRUE)
 plot(en)
-
+dev.off()
 
 text(sappy,display="spec",cex=1.5,col="red")
 points(sappy,display="sites",cex=2,pch=21,col="red", bg="yellow")

@@ -20,6 +20,7 @@ require(MEForLab)
 require(lattice)
 require(ggeffects)
 require(lmtest)
+library(ggeffects)
 
 setwd("~/Google Drive//My Drive/CTRN_CFRU_Share/raw/csv")
 setwd("~/Google Drive/My Drive/Research/CFRU/CTRN_CFRU_Share/raw/csv")
@@ -185,7 +186,7 @@ model8<-lme(Shannon~roughness+tmean+dew+Winds50+wdi.time:actual.removed,
 summary(model8)
 
 #try rescaling wsi.time (mm - cm)
-final.over$wsi.time<-final.over$wsi.time/100
+final.over$wsi.time<-final.over$wsi.time/1000
 
 model9<-lme(Shannon~tmean+dew+wsi.time:actual.removed,
             data=final.over,
@@ -233,51 +234,33 @@ anova(model9,model10)
 
 
 
-
-# model 9 has lower AIC and is preferred through parsimony and better R2 values, RMSE is the same. 
-performance(model9)
-
-mydf2 <- ggpredict(sap.mod2,terms=c("tst","THIN_METH","CCF"),type="zi.prob",allow.new.levels=TRUE)
-
-
-png("~/Desktop/CTRN_Sapling_diversity.png",units='in',height=5.5,width=14,res=1000)
-#theme_set(theme_bw(16))
-
-library(ggplot2)
-ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
-  geom_line(aes(linetype=group,color=group),size=1)+
-  labs(x="Time since treatment (years)",y="Probabilty of no diversity (%)")+
-  #ylim(0,55)+
-  #xlim(4,6)+
-  facet_wrap(~facet)+
-  theme_bw(18) +
-  #theme(legend.position="none")+
-  scale_color_manual(values=c('gray0','gray50','gray25',"gray75"))
-#scale_fill_manual(values=c('gray0','gray70','gray40'), name="fill")
-
 #######
-full.m1 <- lm(Shannon~wsi.time*actual.removed, data=final.over) #LAI was significant prior to additional of structural and density attributes
+#full.m1 <- lm(Shannon~wsi.time*actual.removed, data=final.over) #LAI was significant prior to additional of structural and density attributes
 
-library(ggplot2)
-library(ggeffects)
-mydf2 <- ggpredict(full.m1,terms=c("wsi.time","actual.removed"))
+mydf2 <- ggpredict(model9,terms=c("tmean","wsi.time", "dew"))
 
-#png("~/Desktop/SMC_Sinuosity_Model_Output.png",units='in',height=5.5,width=14,res=1000)
-#theme_set(theme_bw(16))
 
-library(ggplot2)
-output<-ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
-  geom_line(aes(linetype=group,color=group),size=1)+
-  #labs(x="Tree height (m)",y="Probabilty of sinuosity (%)")+
-  #ylim(0,55)+
-  #xlim(4,6)+
-  facet_wrap(~group)+
-  theme_bw(18)
-#theme(legend.position="none")
-#scale_y_continuous(trans="sq")
-#scale_color_manual(values=c('gray0','gray70','gray40'))+
-#scale_fill_manual(values=c('gray0','gray70','gray40'), name="fill")
-output
-png("~/Desktop/interactions.png",units='in',height=5.5,width=14,res=1000)
-output
+
+ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
+  geom_line(aes(colour=group),size=1)+
+  facet_wrap(~facet)+
+  theme_bw(18)+
+  xlab("Mean Temperature")+
+  ylab("Predicted Overstory Diversity")+
+  labs(color = "Water Surplus")+
+  ylim(0,1)
+
+
+
+
+
+png("~/Desktop/overstoryinteractions.png",units='in',height=5.5,width=14,res=1000)
+ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
+  geom_line(aes(colour=group),size=1)+
+  facet_wrap(~facet)+
+  theme_bw(18)+
+  xlab("Mean Temperature")+
+  ylab("Predicted Overstory Diversity")+
+  labs(color = "Water Surplus")+
+  ylim(0,1)
 dev.off()

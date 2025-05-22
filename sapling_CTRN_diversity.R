@@ -233,11 +233,13 @@ plot(sap.mod2)
 performance(sap.mod2)
 
 #compare models with and without tst and wss.time
+
+forest$ht100<-forest$ht40*0.3048
 mod3<-glmmTMB(sap.Shannon~(1|SITEid/PLOTid/CORNERid)+THIN_METH:wsi.time+over.Hill+prop.hw.avg,
               data=forest,
-              ziformula=~THIN_METH+CCF+tst+tmean+ht40,
+              ziformula=~THIN_METH+CCF+tst+tmean+ht100,
               family=ziGamma(link="log"),
-              na.action="na.omit")
+              na.action="na.omit") #winner
 performance(mod3)
 summary(mod3)
 
@@ -251,14 +253,62 @@ performance(mod4)
 
 MuMIn::r.squaredGLMM(sap.mod2)
 
-mydf2 <- ggpredict(sap.mod2,terms=c("tst","THIN_METH","CCF"),type="zi.prob",allow.new.levels=TRUE)
-
-
-png("~/Desktop/CTRN_Sapling_diversity.png",units='in',height=5.5,width=14,res=1000)
-#theme_set(theme_bw(16))
-
-library(ggplot2)
+mydf2 <- ggpredict(sap.mod2,terms=c("prop.hw.avg","over.Hill","THIN_METH"),type="count")
 ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
+  geom_line(aes(colour=group),size=1)+
+  facet_wrap(~facet)+
+  theme_bw(18)+
+  xlab("Proportion of Hardwoods (%)")+
+  ylab("Understory Diversity Presence")+
+  labs(color = "Overstory Hill Numbers")+
+  ylim(0,1)
+
+png("~/Desktop/understorycountdiversity.png",units='in',height=7,width=9,res=1000)
+ggplot(mydf2,aes(x=x,y=predicted,colour=group))+
+  geom_line(aes(colour=group),size=1)+
+  facet_wrap(~facet)+
+  theme_bw(18)+
+  xlab("Proportion of Hardwoods (%)")+
+  ylab("Probability of Understory Diversity")+
+  labs(color = "Overstory Hill Numbers")+
+  ylim(0,1)
+dev.off()
+
+
+mydf3<-ggpredict(mod3,terms=c("tst","ht100","THIN_METH"),type="zi.prob")
+
+ggplot(mydf3,aes(x=x,y=predicted,colour=group))+
+  geom_line(aes(colour=group),size=1)+
+  facet_wrap(~facet)+
+  theme_bw(18)+
+  xlab("Time Since Treatment")+
+  ylab("Predicted Understory Diversity")+
+  ylim(0,1)+
+  labs(color = "HT100")
+
+
+png("~/Desktop/understoryZIDiversity.png",units='in',height=7,width=7,res=1000)
+  ggplot(mydf3,aes(x=x,y=predicted,colour=group))+
+  geom_line(aes(colour=group),size=1)+
+  facet_wrap(~facet)+
+  theme_bw(18)+
+  xlab("Time Since Treatment")+
+  ylab("Predicted Understory Diversity")+
+  ylim(0,1)+
+  labs(color = "HT100")
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+ggplot(mydf3,aes(x=x,y=predicted,colour=group))+
   geom_line(aes(linetype=group,color=group),size=1)+
   labs(x="Time since treatment (years)",y="Probabilty of no diversity (%)")+
   #ylim(0,55)+
